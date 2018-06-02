@@ -16,13 +16,13 @@ A high perf wallet server, independant from a regular bismuth node.
 
 ## Current drawbacks
 * not much doc (wip)
-* does not support tokens opearations yet (wip also)
+* does not support tokens operations yet (wip also)
 
 # Usage
 
 ## Installation
 * requires pythno 3.5+ (async/await)
-* Copy the files over your regular node directory (needs some libs and config files)
+* Copy the files over your regular node directory (needs some libs and config files from bismuth core)
 * install dependencies: `pip3 install -r wallet-server-requirements.txt`
 * The Bismuth node has to be running
 * run `python3 wallet_server.py`
@@ -32,8 +32,8 @@ A high perf wallet server, independant from a regular bismuth node.
 * --port : use an alternate port (default is 8150)
 
 ## Connect to the wallet server
-The current wallet has a hardcoded port from config.  
-atm, to connect to this server you have to manually edit your wallet.py file, and change the port:  
+The current wallet uses a hardcoded port from config.  
+Atm, to connect to this server you have to manually edit your wallet.py file, and change the port:  
 Line 65, replace  
 `port = config.port`  
 by  
