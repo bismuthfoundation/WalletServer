@@ -16,12 +16,11 @@ A high perf wallet server, independant from a regular bismuth node.
 
 ## Current drawbacks
 * not much doc (wip)
-* does not support tokens operations yet (wip also)
 
 # Usage
 
 ## Installation
-* requires pythno 3.5+ (async/await)
+* requires python 3.5+ (async/await)
 * Copy the files over your regular node directory (needs some libs and config files from bismuth core)
 * install dependencies: `pip3 install -r wallet-server-requirements.txt`
 * The Bismuth node has to be running
