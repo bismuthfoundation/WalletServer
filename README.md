@@ -39,5 +39,7 @@ Line 65, replace
 by  
 `port = 8150  # Wallet server`
 
+> A workaround would be to run your bismuth node on an alternate port, and use default 5658 port as the wallet server port.
+
 # Licence
 Copyright Bismuth Foundation & Eggpool, GPL v2 licence.
