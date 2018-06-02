@@ -33,4 +33,4 @@ A high perf wallet server, independant from a regular bismuth node.
 
 # Licence
 
-Copyright Bismuth Fondation & Eggpool, GPL v2 licence.
+Copyright Bismuth Foundation & Eggpool, GPL v2 licence.
