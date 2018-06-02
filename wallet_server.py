@@ -33,7 +33,7 @@ from ann import replace_regex
 from quantizer import *
 from essentials import fee_calculate
 
-__version__ = '0.0.1'
+__version__ = '0.0.2'
 
 
 # Limit can be pretty high, only one thread is used for the whole server.
@@ -187,6 +187,13 @@ class WalletServer(TCPServer):
             node_alias = await self.node_alias(address, ip)
             await self._send(node_alias, stream, ip)
             return
+        if data == "tokensget":
+            # since this triggers an alias reindex on the node, forward to the node. But maybe a simple query of the index would be enough if the node reindexes often enough.
+            # Get addresses
+            address = await self._receive(stream, ip)
+            node_tokens = await self.node_tokens(address, ip)
+            await self._send(node_tokens, stream, ip)
+            return
         if data == "mpinsert":
             mempool_insert = await self._receive(stream, ip)
             # since we don't want to dup too much code, let just forward to the node atm.
@@ -241,6 +248,17 @@ class WalletServer(TCPServer):
         stream = await TCPClient().connect(CONFIG.node_ip_conf, CONFIG.port)
         try:
             await self._send("aliasget", stream, ip)
+            await self._send(address, stream, ip)
+            res = await self._receive(stream, ip)
+            return res
+        except KeyboardInterrupt:
+            stream.close()
+
+    async def node_tokens(self, address, ip):
+        global CONFIG
+        stream = await TCPClient().connect(CONFIG.node_ip_conf, CONFIG.port)
+        try:
+            await self._send("tokensget", stream, ip)
             await self._send(address, stream, ip)
             res = await self._receive(stream, ip)
             return res
