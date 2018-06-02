@@ -22,6 +22,7 @@ class SqliteBase():
         self.db_path = db_path + db_name
         self.db_name = db_name
         self.app_log = app_log
+        self.verbose = verbose
         self.db = None
         self.cursor = None
         self.check()
