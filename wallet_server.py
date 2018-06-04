@@ -13,7 +13,7 @@ import sys
 import os
 import json
 import logging
-# import asyncio
+import asyncio
 # from datetime import datetime
 from logging.handlers import RotatingFileHandler
 import aioprocessing
@@ -33,11 +33,10 @@ from ann import replace_regex
 from quantizer import *
 from essentials import fee_calculate
 
-__version__ = '0.0.2'
+__version__ = '0.0.3'
 
 
 # Limit can be pretty high, only one thread is used for the whole server.
-# TODO: not enforced atm, so don't use in prod!
 MAX_CLIENTS = 500
 
 # Port we're listening on
@@ -58,17 +57,25 @@ class WalletServer(TCPServer):
         global access_log
         global app_log
         global stop_event
+        global MAX_CLIENTS
         ip, fileno = address
         error_shown = False
-        if options.verbose:
-            access_log.info("Incoming connection from " + ip)
+        if len(self.clients) >= MAX_CLIENTS:
+            access_log.info("Reached {} max clients, denying connection for {}.".format(MAX_CLIENTS, ip))
+            return
+        access_log.info("Incoming connection from " + ip)
         WalletServer.clients.add(address)
         while not stop_event.is_set():
             try:
                 await self.command(stream, ip)
             except StreamClosedError:
+                access_log.info("Client " + str(address) + " left.")
+                error_shown = True
+                WalletServer.clients.remove(address)
+                break
+            except ValueError:
                 if options.verbose:
-                    access_log.info("Client " + str(address) + " left.")
+                    access_log.info("Client " + str(address) + " Rejected.")
                 error_shown = True
                 WalletServer.clients.remove(address)
                 break
@@ -121,8 +128,8 @@ class WalletServer(TCPServer):
     async def command(self, stream, ip):
         global access_log
         data = await self._receive(stream, ip)
-        # if options.verbose:
-        #     access_log.info("Process "+str(process.task_id())+" - Command " + data)
+        if options.verbose:
+            access_log.info("Command " + data)
         # "free commands"
         if data == "statusget":
             # Get from the node and forward
@@ -222,15 +229,19 @@ class WalletServer(TCPServer):
         # don't hammer the node, cache recent info
         if self.cached("status"):
             return self.cache['status'][1]
-        # too old, ask the node
-        stream = await TCPClient().connect(CONFIG.node_ip_conf, CONFIG.port)
         try:
-            await self._send("statusget", stream, ip)
-            res = await self._receive(stream, ip)
-            self.set_cache("status", res)
-            return res
-        except KeyboardInterrupt:
-            stream.close()
+            # too old, ask the node
+            stream = await TCPClient().connect(CONFIG.node_ip_conf, CONFIG.port)
+            try:
+                await self._send("statusget", stream, ip)
+                res = await self._receive(stream, ip)
+                self.set_cache("status", res)
+                return res
+            except KeyboardInterrupt:
+                stream.close()
+        except Exception as e:
+            print(e)
+            # print(CONFIG.node_ip_conf, CONFIG.port)
 
     async def node_aliases(self, addresses, ip):
         global CONFIG
@@ -363,6 +374,21 @@ class WalletServer(TCPServer):
         # app_log.info("Mempool: Projected transction address balance: " + str(balance))
         return str(balance), str(credit_ledger), str(debit), str(fees), str(rewards), str(balance_no_mempool)
 
+    async def background(self):
+        """
+        This runs in a background coroutine and print out status
+        :return:
+        """
+        global stop_event
+        global app_log
+        while not stop_event.is_set():
+            try:
+                app_log.info("STATUS: {} Connected clients.".format(len(self.clients)))
+                await asyncio.sleep(30)
+            except Exception as e:
+                app_log.error("Error background {}".format(str(e)))
+                #raise
+
 
 async def getrights(ip):
     global app_log
@@ -392,7 +418,7 @@ def start_server(port):
     if options.verbose:
         app_log.info("Starting server on tcp://localhost:" + str(port))
     io_loop = IOLoop.instance()
-    # io_loop.spawn_callback(server.do_pings)
+    io_loop.spawn_callback(server.background)
     try:
         io_loop.start()
     except KeyboardInterrupt:
