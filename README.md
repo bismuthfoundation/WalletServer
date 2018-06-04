@@ -23,6 +23,7 @@ A high perf wallet server, independant from a regular bismuth node.
 * requires python 3.5+ (async/await)
 * Copy the files over your regular node directory (needs some libs and config files from bismuth core)
 * install dependencies: `pip3 install -r wallet-server-requirements.txt`
+* Make sure you don't use ram mempool: in config.txt, set `mempool_ram_conf=False`
 * The Bismuth node has to be running
 * run `python3 wallet_server.py`
 
@@ -39,6 +40,17 @@ by
 `port = 8150  # Wallet server`
 
 > A workaround would be to run your bismuth node on an alternate port, and use default 5658 port as the wallet server port.
+
+# Changelog
+
+## 0.0.3
+* More verbose by default
+* Enforce MAX_CLIENTS (see wallet_server.py, 500 by default)
+* Status display with connected clients # every 30 sec
+
+## 0.0.2
+First release version
+
 
 # Licence
 Copyright Bismuth Foundation & Eggpool, GPL v2 licence.
