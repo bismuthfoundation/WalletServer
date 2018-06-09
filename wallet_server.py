@@ -69,13 +69,13 @@ class WalletServer(TCPServer):
             try:
                 await self.command(stream, ip)
             except StreamClosedError:
-                access_log.info("Client " + str(address) + " left.")
+                access_log.info("Client {} left.".format(address))
                 error_shown = True
                 WalletServer.clients.remove(address)
                 break
             except ValueError:
                 if options.verbose:
-                    access_log.info("Client " + str(address) + " Rejected.")
+                    access_log.info("Client {} Rejected.".format(address))
                 error_shown = True
                 WalletServer.clients.remove(address)
                 break
@@ -416,7 +416,7 @@ def start_server(port):
     server.bind(port)
     server.start(1)  # Force one process only
     if options.verbose:
-        app_log.info("Starting server on tcp://localhost:" + str(port))
+        app_log.info("Starting server on tcp://localhost: {}".format(port))
     io_loop = IOLoop.instance()
     io_loop.spawn_callback(server.background)
     try:
