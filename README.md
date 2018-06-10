@@ -20,7 +20,7 @@ A high perf wallet server, independant from a regular bismuth node.
 # Usage
 
 ## Installation
-* requires python 3.5+ (async/await)
+* requires python 3.6+ (async/await)
 * Copy the files over your regular node directory (needs some libs and config files from bismuth core)
 * install dependencies: `pip3 install -r wallet-server-requirements.txt`
 * Make sure you don't use ram mempool: in config.txt, set `mempool_ram_conf=False`
@@ -42,6 +42,17 @@ by
 > A workaround would be to run your bismuth node on an alternate port, and use default 5658 port as the wallet server port.
 
 # Changelog
+
+## 0.0.4
+
+Upgrade is more than recommended
+
+* more status info about open file descriptors
+* fixed a pretty bad socket descriptors leak
+* alert if ulimit is too small on launch
+* prints current file limits at launch
+* psutil is a new pip requirement
+* previous requirements were wrong, python 3.6+ is required.
 
 ## 0.0.3
 * More verbose by default
