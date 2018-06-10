@@ -14,6 +14,7 @@ import os
 import json
 import logging
 import asyncio
+import psutil
 # from datetime import datetime
 from logging.handlers import RotatingFileHandler
 import aioprocessing
@@ -33,7 +34,7 @@ from ann import replace_regex
 from quantizer import *
 from essentials import fee_calculate
 
-__version__ = '0.0.3'
+__version__ = '0.0.4'
 
 
 # Limit can be pretty high, only one thread is used for the whole server.
@@ -69,13 +70,13 @@ class WalletServer(TCPServer):
             try:
                 await self.command(stream, ip)
             except StreamClosedError:
-                access_log.info("Client {} left.".format(address))
+                access_log.info("Client " + str(address) + " left.")
                 error_shown = True
                 WalletServer.clients.remove(address)
                 break
             except ValueError:
                 if options.verbose:
-                    access_log.info("Client {} Rejected.".format(address))
+                    access_log.info("Client " + str(address) + " Rejected.")
                 error_shown = True
                 WalletServer.clients.remove(address)
                 break
@@ -242,6 +243,9 @@ class WalletServer(TCPServer):
         except Exception as e:
             print(e)
             # print(CONFIG.node_ip_conf, CONFIG.port)
+        finally:
+            if stream:
+                stream.close()
 
     async def node_aliases(self, addresses, ip):
         global CONFIG
@@ -253,6 +257,9 @@ class WalletServer(TCPServer):
             return res
         except KeyboardInterrupt:
             stream.close()
+        finally:
+            if stream:
+                stream.close()
 
     async def node_alias(self, address, ip):
         global CONFIG
@@ -264,6 +271,9 @@ class WalletServer(TCPServer):
             return res
         except KeyboardInterrupt:
             stream.close()
+        finally:
+            if stream:
+                stream.close()
 
     async def node_tokens(self, address, ip):
         global CONFIG
@@ -275,6 +285,9 @@ class WalletServer(TCPServer):
             return res
         except KeyboardInterrupt:
             stream.close()
+        finally:
+            if stream:
+                stream.close()
 
     async def node_mpinsert(self, mp_insert, ip):
         # TODO: factorize with node_aliases above
@@ -287,6 +300,9 @@ class WalletServer(TCPServer):
             return res
         except KeyboardInterrupt:
             stream.close()
+        finally:
+            if stream:
+                stream.close()
 
     async def blocklast(self, ip):
         if self.cached("blocklast"):
@@ -381,9 +397,16 @@ class WalletServer(TCPServer):
         """
         global stop_event
         global app_log
+        global process
         while not stop_event.is_set():
             try:
                 app_log.info("STATUS: {} Connected clients.".format(len(self.clients)))
+                if process:
+                    of = len(process.open_files())
+                    fd = process.num_fds()
+                    co = len(process.connections(kind="tcp4"))
+                    app_log.info("STATUS: {} Open files, {} connections, {} FD used.".format(of, co, fd))
+
                 await asyncio.sleep(30)
             except Exception as e:
                 app_log.error("Error background {}".format(str(e)))
@@ -416,7 +439,7 @@ def start_server(port):
     server.bind(port)
     server.start(1)  # Force one process only
     if options.verbose:
-        app_log.info("Starting server on tcp://localhost: {}".format(port))
+        app_log.info("Starting server on tcp://localhost:" + str(port))
     io_loop = IOLoop.instance()
     io_loop.spawn_callback(server.background)
     try:
@@ -432,6 +455,7 @@ if __name__ == "__main__":
     global access_log
     global stop_event
     global start_time
+    global process
 
     CONFIG = config.Get()
     CONFIG.read()
@@ -444,6 +468,16 @@ if __name__ == "__main__":
     define("port", default=PORT, help="port to listen on")
     define("verbose", default=False, help="verbose")
     options.parse_command_line()
+
+    if CONFIG.mempool_ram_conf:
+        print("Incompatible setting detected.")
+        print("Please edit config.txt, set mempool_ram_conf=False and restart node")
+        sys.exit()
+
+    if not os.path.isfile('./mempool.db'):
+        print("mempool.db not found.")
+        print("Please edit config.txt, check mempool_ram_conf=False and restart node.")
+        sys.exit()
 
     start_time = time.time()
 
@@ -474,6 +508,18 @@ if __name__ == "__main__":
     access_log.addHandler(rotateHandler2)
 
     app_log.warning("Testnet: {}".format(is_testnet))
+
+    if os.name == "posix":
+        process = psutil.Process()
+        limit = process.rlimit(psutil.RLIMIT_NOFILE)
+        app_log.info("OS File limits {}, {}".format(limit[0], limit[1]))
+        if limit[0] < 1024:
+            app_log.error("Too small ulimit, please tune your system.")
+            sys.exit()
+    else:
+        process = None
+
+
 
     app_log.info("Wallet Server {} Starting.".format(__version__))
 
