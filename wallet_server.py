@@ -18,7 +18,7 @@ import psutil
 # from datetime import datetime
 from logging.handlers import RotatingFileHandler
 import aioprocessing
-# Tornado
+# Tornado
 # from tornado import process
 from tornado.ioloop import IOLoop
 from tornado.options import define, options
@@ -195,6 +195,11 @@ class WalletServer(TCPServer):
             node_alias = await self.node_alias(address, ip)
             await self._send(node_alias, stream, ip)
             return
+        if data == "aliascheck":
+            alias_desired = await self._receive(stream, ip)
+            alias_result = await self.alias_check(alias_desired, ip)
+            await self._send(alias_result, stream, ip)
+            return
         if data == "tokensget":
             # since this triggers an alias reindex on the node, forward to the node. But maybe a simple query of the index would be enough if the node reindexes often enough.
             # Get addresses
@@ -216,7 +221,7 @@ class WalletServer(TCPServer):
         rights = await getrights(ip)
         # admin only
         if "admin" in rights:
-            # TODO
+            # TODO
             if data == 'status':
                 return
             if data == 'setconfig':
@@ -253,6 +258,20 @@ class WalletServer(TCPServer):
         try:
             await self._send("aliasesget", stream, ip)
             await self._send(addresses, stream, ip)
+            res = await self._receive(stream, ip)
+            return res
+        except KeyboardInterrupt:
+            stream.close()
+        finally:
+            if stream:
+                stream.close()
+
+    async def alias_check(self, alias_desired, ip):
+        global CONFIG
+        stream = await TCPClient().connect(CONFIG.node_ip_conf, CONFIG.port)
+        try:
+            await self._send("aliascheck", stream, ip)
+            await self._send(alias_desired, stream, ip)
             res = await self._receive(stream, ip)
             return res
         except KeyboardInterrupt:
