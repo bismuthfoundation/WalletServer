@@ -188,6 +188,13 @@ class WalletServer(TCPServer):
             node_aliases = await self.node_aliases(addresses, ip)
             await self._send(node_aliases, stream, ip)
             return
+
+        if data == "addfromalias":
+            address_to_resolve = await self._receive(stream, ip)
+            address_resolved = await self.add_from_alias(address_to_resolve, ip)
+            await self._send(address_resolved, stream, ip)
+            return
+
         if data == "aliasget":
             # since this triggers an alias reindex on the node, forward to the node. But maybe a simple query of the index would be enough if the node reindexes often enough.
             # Get addresses
@@ -258,6 +265,20 @@ class WalletServer(TCPServer):
         try:
             await self._send("aliasesget", stream, ip)
             await self._send(addresses, stream, ip)
+            res = await self._receive(stream, ip)
+            return res
+        except KeyboardInterrupt:
+            stream.close()
+        finally:
+            if stream:
+                stream.close()
+
+    async def add_from_alias(self, alias_resolve, ip):
+        global CONFIG
+        stream = await TCPClient().connect(CONFIG.node_ip_conf, CONFIG.port)
+        try:
+            await self._send("addfromalias", stream, ip)
+            await self._send(alias_resolve, stream, ip)
             res = await self._receive(stream, ip)
             return res
         except KeyboardInterrupt:
