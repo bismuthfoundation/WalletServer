@@ -381,14 +381,14 @@ class WalletServer(TCPServer):
         return ann
 
     async def balanceget(self, balance_address):
-        base_mempool = await self.mempool.async_fetchall("SELECT amount, openfield FROM transactions WHERE address = ?;",
+        base_mempool = await self.mempool.async_fetchall("SELECT amount, openfield, operation FROM transactions WHERE address = ?;",
                                            (balance_address,))
         # include mempool fees
         debit_mempool = 0
         if base_mempool:
             for x in base_mempool:
                 debit_tx = Decimal(x[0])
-                fee = fee_calculate(x[1])
+                fee = fee_calculate(x[1], x[2], 700001)
                 debit_mempool = quantize_eight(debit_mempool + debit_tx + fee)
         else:
             debit_mempool = 0
