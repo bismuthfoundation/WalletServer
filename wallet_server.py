@@ -34,7 +34,7 @@ from ann import replace_regex
 from quantizer import *
 from essentials import fee_calculate
 
-__version__ = '0.0.4'
+__version__ = '0.0.45'
 
 
 # Limit can be pretty high, only one thread is used for the whole server.
