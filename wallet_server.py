@@ -15,7 +15,7 @@ import json
 import logging
 import asyncio
 import psutil
-# from datetime import datetime
+import datetime
 from logging.handlers import RotatingFileHandler
 import aioprocessing
 # Tornado
@@ -25,6 +25,8 @@ from tornado.options import define, options
 from tornado.iostream import StreamClosedError
 from tornado.tcpserver import TCPServer
 import tornado.log
+import tornado.gen
+import tornado.util
 from tornado.tcpclient import TCPClient
 
 # Bismuth specific modules
@@ -34,7 +36,7 @@ from ann import replace_regex
 from quantizer import *
 from essentials import fee_calculate
 
-__version__ = '0.0.45'
+__version__ = '0.0.50'
 
 
 # Limit can be pretty high, only one thread is used for the whole server.
@@ -64,27 +66,38 @@ class WalletServer(TCPServer):
         if len(self.clients) >= MAX_CLIENTS:
             access_log.info("Reached {} max clients, denying connection for {}.".format(MAX_CLIENTS, ip))
             return
-        access_log.info("Incoming connection from " + ip)
         WalletServer.clients.add(address)
+        access_log.info("Incoming connection from {}:{} - {} Total Clients".format(ip, fileno, len(self.clients)))
         while not stop_event.is_set():
             try:
                 await self.command(stream, ip)
             except StreamClosedError:
-                access_log.info("Client {} left.".format(address))
                 error_shown = True
                 WalletServer.clients.remove(address)
+                access_log.info("Client {}:{} left  - {} Total Clients".format(ip, fileno, len(self.clients)))
                 break
             except ValueError:
-                if options.verbose:
-                    access_log.info("Client {} Rejected.".format(address))
-                error_shown = True
                 WalletServer.clients.remove(address)
+                if options.verbose:
+                    access_log.info("Client {}:{} Rejected  - {} Total Clients".format(ip, fileno, len(self.clients)))
+                error_shown = True
+                stream.close()
+                break
+            except tornado.util.TimeoutError:
+                WalletServer.clients.remove(address)
+                access_log.info("Client {}:{} Timeout  - {} Total Clients".format(ip, fileno, len(self.clients)))
+                error_shown = True
+                try:
+                    stream.close()
+                except:
+                    pass
                 break
             except Exception as e:
                 if not error_shown:
                     what = str(e)
                     if not 'OK' in what:
-                        app_log.error("handle_stream {} for ip {}".format(what, ip))
+                        app_log.error("handle_stream {} for ip {}:{}".format(what, ip, fileno))
+                        await asyncio.sleep(1)
 
     async def _receive(self, stream, ip):
         """
@@ -93,9 +106,9 @@ class WalletServer(TCPServer):
         :param ip:
         :return:
         """
-        header = await stream.read_bytes(10)
+        header = await tornado.gen.with_timeout(datetime.timedelta(seconds=35), stream.read_bytes(10), quiet_exceptions=tornado.iostream.StreamClosedError)
         data_len = int(header)
-        data = await stream.read_bytes(data_len)
+        data = await tornado.gen.with_timeout(datetime.timedelta(seconds=10), stream.read_bytes(data_len), quiet_exceptions=tornado.iostream.StreamClosedError)
         data = json.loads(data.decode("utf-8"))
         return data
 
@@ -188,13 +201,11 @@ class WalletServer(TCPServer):
             node_aliases = await self.node_aliases(addresses, ip)
             await self._send(node_aliases, stream, ip)
             return
-
         if data == "addfromalias":
             address_to_resolve = await self._receive(stream, ip)
             address_resolved = await self.add_from_alias(address_to_resolve, ip)
             await self._send(address_resolved, stream, ip)
             return
-
         if data == "aliasget":
             # since this triggers an alias reindex on the node, forward to the node. But maybe a simple query of the index would be enough if the node reindexes often enough.
             # Get addresses
