@@ -47,12 +47,12 @@ class SqliteBase():
         :param commit: optional. will commit after sql
         :return:
         """
-        if not self.db:
+        if self.db is None:
             raise ValueError("Closed {} DB".format(self.db_name))
         tries = 0
         while True:
             try:
-                if not cursor:
+                if cursor is None:
                     cursor = self.cursor
                 if param:
                     cursor.execute(sql, param)
@@ -82,7 +82,7 @@ class SqliteBase():
         :param commit: If True, will commit after the request.
         :return: a cursor async proxy, or None if commit. If not commit, cursor() has to be close.
         """
-        if not self.async_db:
+        if self.async_db is None:
             # TODO: RAM Mode
             try:
                 # open
@@ -121,7 +121,7 @@ class SqliteBase():
         Safe commit
         :return:
         """
-        if not self.db:
+        if self.db is None:
             raise ValueError("Closed {} DB".format(self.db_name))
         while True:
             try:
@@ -154,7 +154,7 @@ class SqliteBase():
         cursor = await self.async_execute(sql, param)
         data = await cursor.fetchone()
         await cursor.close()
-        if not data:
+        if data is None:
             return None
         if as_dict:
             return dict(data)
