@@ -49,6 +49,7 @@ class SqliteBase():
         """
         if self.db is None:
             raise ValueError("Closed {} DB".format(self.db_name))
+
         tries = 0
         while True:
             try:
@@ -85,14 +86,16 @@ class SqliteBase():
         if self.async_db is None:
             # TODO: RAM Mode
             try:
-                # open
                 if self.verbose:
                     self.app_log.info("Opening async {} db".format(self.db_name))
+                
+                # open
                 self.async_db = await aiosqlite3.connect(self.db_path, loop=asyncio.get_event_loop())
                 # self.async_db.row_factory = sqlite3.Row
                 self.async_db.text_factory = str
             except Exception as e:
                 self.app_log.warning("async_execute {}: {}".format(self.db_name, e))
+
         # TODO: add a try count and die if we lock
         max_tries = 10
         while max_tries:
@@ -108,8 +111,10 @@ class SqliteBase():
                 self.app_log.warning("Database {} retry reason: {}".format(self.db_name, e))
                 asyncio.sleep(0.1)
                 max_tries -= 1
-        if not max_tries:
+
+        if max_tries == 0:
             raise ValueError("Too many retries")
+
         if commit:
             await self.async_commit()
             await cursor.close()
@@ -123,6 +128,7 @@ class SqliteBase():
         """
         if self.db is None:
             raise ValueError("Closed {} DB".format(self.db_name))
+
         while True:
             try:
                 self.db.commit()
@@ -154,6 +160,7 @@ class SqliteBase():
         cursor = await self.async_execute(sql, param)
         data = await cursor.fetchone()
         await cursor.close()
+
         if data is None:
             return None
         if as_dict:
@@ -187,6 +194,7 @@ class SqliteBase():
         # TODO: make sure we call when closing.
         if self.async_db:
             await self.async_db.close()
+
         if self.verbose:
             self.app_log.info("Closed async {} db".format(self.db_name))
 
