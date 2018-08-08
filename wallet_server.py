@@ -8,35 +8,34 @@ pip3 install -r wallet-server-requirements.txt
 """
 
 
-import time
-import sys
-import os
+import asyncio
+import datetime
 import json
 import logging
-import asyncio
-import psutil
-import datetime
+import os
+import sys
+import time
 from logging.handlers import RotatingFileHandler
+
 import aioprocessing
-# Tornado
-# from tornado import process
-from tornado.ioloop import IOLoop
-from tornado.options import define, options
-from tornado.iostream import StreamClosedError
-from tornado.tcpserver import TCPServer
-import tornado.log
+import psutil
 import tornado.gen
+import tornado.log
 import tornado.util
+from tornado.ioloop import IOLoop
+from tornado.iostream import StreamClosedError
+from tornado.options import define, options
 from tornado.tcpclient import TCPClient
+from tornado.tcpserver import TCPServer
 
 # Bismuth specific modules
-from sqlitebase import SqliteBase
 import options as config
 from ann import replace_regex
-from quantizer import *
 from essentials import fee_calculate
+from quantizer import *
+from sqlitebase import SqliteBase
 
-__version__ = '0.0.50'
+__version__ = '0.0.51'
 
 
 # Limit can be pretty high, only one thread is used for the whole server.
@@ -55,6 +54,7 @@ class WalletServer(TCPServer):
     cache = {}
     mempool = None
     ledger = None
+    status_dict = {'version': __version__}
 
     async def handle_stream(self, stream, address):
         global access_log
@@ -62,7 +62,6 @@ class WalletServer(TCPServer):
         global stop_event
         global MAX_CLIENTS
         ip, fileno = address
-        error_shown = False
         if len(self.clients) >= MAX_CLIENTS:
             access_log.info("Reached {} max clients, denying connection for {}.".format(MAX_CLIENTS, ip))
             return
@@ -72,7 +71,6 @@ class WalletServer(TCPServer):
             try:
                 await self.command(stream, ip)
             except StreamClosedError:
-                error_shown = True
                 WalletServer.clients.remove(address)
                 access_log.info("Client {}:{} left  - {} Total Clients".format(ip, fileno, len(self.clients)))
                 break
@@ -80,24 +78,21 @@ class WalletServer(TCPServer):
                 WalletServer.clients.remove(address)
                 if options.verbose:
                     access_log.info("Client {}:{} Rejected  - {} Total Clients".format(ip, fileno, len(self.clients)))
-                error_shown = True
                 stream.close()
                 break
             except tornado.util.TimeoutError:
                 WalletServer.clients.remove(address)
                 access_log.info("Client {}:{} Timeout  - {} Total Clients".format(ip, fileno, len(self.clients)))
-                error_shown = True
                 try:
                     stream.close()
                 except:
                     pass
                 break
             except Exception as e:
-                if not error_shown:
-                    what = str(e)
-                    if not 'OK' in what:
-                        app_log.error("handle_stream {} for ip {}:{}".format(what, ip, fileno))
-                        await asyncio.sleep(1)
+                what = str(e)
+                if 'OK' not in what:
+                    app_log.error("handle_stream {} for ip {}:{}".format(what, ip, fileno))
+                    await asyncio.sleep(1)
 
     async def _receive(self, stream, ip):
         """
@@ -148,7 +143,12 @@ class WalletServer(TCPServer):
         if data == "statusget":
             # Get from the node and forward
             node_status = await self.node_status(ip)
+            node_status['wallet_server'] = self.status_dict
             await self._send(node_status, stream, ip)
+            return
+        if data == "wstatusget":
+            # Get wallet server status only
+            await self._send(self.status_dict, stream, ip)
             return
         if data == "balanceget":
             # Get address
@@ -178,16 +178,16 @@ class WalletServer(TCPServer):
             # Get address
             address = await self._receive(stream, ip)
             # Get lines count
-            limit = await self._receive(stream, ip)
+            limit2 = await self._receive(stream, ip)
             txs = await self.ledger.async_fetchall("SELECT * FROM transactions WHERE (address = ? OR recipient = ?) ORDER BY block_height DESC LIMIT ?",
-                                                 (address, address, limit))
+                                                 (address, address, limit2))
             await self._send(txs, stream, ip)
             return
         if data == 'addlist':
             # Get address
             address = await self._receive(stream, ip)
             txs = await self.ledger.async_fetchall("SELECT * FROM transactions WHERE (address = ? OR recipient = ?) ORDER BY block_height DESC",
-                                                 (address, address))
+                                                   (address, address))
             await self._send(txs, stream, ip)
             return
         if data == "annget":
@@ -456,12 +456,13 @@ class WalletServer(TCPServer):
                     of = len(process.open_files())
                     fd = process.num_fds()
                     co = len(process.connections(kind="tcp4"))
+                    self.status_dict['clients'] = len(self.clients)
+                    self.status_dict['of'] , self.status_dict['fd'], self.status_dict['co'] = of, fd, co
                     app_log.info("STATUS: {} Open files, {} connections, {} FD used.".format(of, co, fd))
 
                 await asyncio.sleep(30)
             except Exception as e:
                 app_log.error("Error background {}".format(str(e)))
-                #raise
 
 
 async def getrights(ip):
