@@ -35,7 +35,7 @@ from essentials import fee_calculate
 from quantizer import *
 from sqlitebase import SqliteBase
 
-__version__ = '0.0.51'
+__version__ = '0.0.52'
 
 
 # Limit can be pretty high, only one thread is used for the whole server.
@@ -511,6 +511,12 @@ if __name__ == "__main__":
 
     CONFIG = config.Get()
     CONFIG.read()
+    # Failsafe for config change
+    try:
+        test = CONFIG.node_ip_conf
+    except:
+        CONFIG.node_ip_conf = CONFIG.node_ip 
+    #
     version = CONFIG.version_conf
     if "testnet" in version:
         is_testnet = True
