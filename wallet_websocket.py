@@ -68,6 +68,7 @@ class ChannelHandler(tornado.websocket.WebSocketHandler):
         """
         app_log.info("Message {}".format(message))
         message = json.loads(message)
+        # TODO: check with message[0] that we have the right number of params
         # string, or dict that will be json encoded
         res = await NODE_INTERFACE.call_user(message)
         self.write_message(json.dumps(res))

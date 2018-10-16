@@ -21,12 +21,13 @@ A high perf wallet server, independant from a regular bismuth node.
 
 
 ** IMPORTANT **
+===============
 
 CURRENTLY BEING REWRITEN  
-
+========================
 
 It now lives in a directory of its own and has its own config.
-
+==============================================================
 
 
 ## Installation
@@ -52,6 +53,10 @@ by
 > A workaround would be to run your bismuth node on an alternate port, and use default 5658 port as the wallet server port.
 
 # Changelog
+
+## 0.1.1
+
+Major refactor to support the websocket server as well.
 
 ## 0.0.4
 
