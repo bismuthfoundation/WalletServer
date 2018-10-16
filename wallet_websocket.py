@@ -6,6 +6,9 @@ EggdraSyl -October 2018
 pip3 install -r requirements.txt
 """
 
+# TODO: background status taks
+
+# TODO: limit clients #
 
 
 import logging
@@ -71,7 +74,7 @@ class ChannelHandler(tornado.websocket.WebSocketHandler):
         # TODO: check with message[0] that we have the right number of params
         # string, or dict that will be json encoded
         res = await NODE_INTERFACE.call_user(message)
-        self.write_message(json.dumps(res))
+        await self.write_message(json.dumps(res))
 
     def on_close(self):
         """
