@@ -7,10 +7,9 @@ pip3 install -r requirements.txt
 """
 
 
-#import asyncio
-#import datetime
-#import json
+
 import logging
+import json
 import os
 import sys
 import time
@@ -31,18 +30,19 @@ import tornado.options
 # Bismuth specific modules
 import modules.config as config
 # from modules.helpers import *
-# from modules.sqlitebase import SqliteBase
+from modules.sqlitebase import SqliteBase
+from modules.node_interface import NodeInterface
 
 
-# TODO: some common code to factorize later on.
+__version__ = '0.0.2'
 
 
-__version__ = '0.0.1'
+NODE_INTERFACE = None
 
 
 class ChannelHandler(tornado.websocket.WebSocketHandler):
     """
-    Handler that handles a websocket channel
+    Handler for a websocket channel
     """
 
     @classmethod
@@ -62,21 +62,22 @@ class ChannelHandler(tornado.websocket.WebSocketHandler):
         global app_log
         access_log.info("open")
 
-    def on_message(self, message):
+    async def on_message(self, message):
         """
         Message received on channel
         """
-        global app_log
         app_log.info("Message {}".format(message))
-        # string, of dict that will be json encoded
-        # if message == 'getbalance'
-        self.write_message('123.45')
+        message = json.loads(message)
+        # string, or dict that will be json encoded
+        res = await NODE_INTERFACE.call_user(message)
+        self.write_message(json.dumps(res))
 
     def on_close(self):
         """
         Channel is closed
         """
-        access_log.info("close, code {} reason {}".format(self.close_code, self.close_reason))
+        if self.close_code:
+            access_log.info("close, code {} reason {}".format(self.close_code, self.close_reason))
 
     def check_origin(self, origin):
         """
@@ -86,11 +87,9 @@ class ChannelHandler(tornado.websocket.WebSocketHandler):
 
 
 async def getrights(ip):
-    global app_log
-    global CONFIG
     try:
         result = ['none']
-        if ip in CONFIG.allowed_conf:
+        if ip in CONFIG.allowed:
             result.append("admin")
         return result
     except Exception as e:
@@ -98,24 +97,12 @@ async def getrights(ip):
 
 
 def start_server(port):
-    global app_log
-    global stop_event
-    global PORT
-    global CONFIG
-    """
-    server = WalletServer()
-    # attach mempool db
-    server.mempool = SqliteBase(options.verbose, db_path=CONFIG.node_path+'/', db_name='mempool.db', app_log=app_log)
-    # attach ledger
-    server.ledger = SqliteBase(options.verbose, db_path=CONFIG.db_path+'/', db_name='ledger.db', app_log=app_log)
-    #server.listen(port)
-    server.bind(port)
-    server.start(1)  # Force one process only
-    if options.verbose:
-        app_log.info("Starting server on tcp://localhost:{}".format(port))
-    io_loop = IOLoop.instance()
-    io_loop.spawn_callback(server.background)
-    """
+    global NODE_INTERFACE
+
+    mempool = SqliteBase(options.verbose, db_path=CONFIG.node_path + '/', db_name='mempool.db', app_log=app_log)
+    ledger = SqliteBase(options.verbose, db_path=CONFIG.db_path + '/', db_name='ledger.db', app_log=app_log)
+    NODE_INTERFACE = NodeInterface(mempool, ledger, CONFIG)
+
     app = tornado.web.Application(ChannelHandler.urls())
 
     # Setup HTTP Server
@@ -124,7 +111,6 @@ def start_server(port):
     # http_server.listen(port, LISTEN_ADDRESS)
 
     # Start IO/Event loop
-
     io_loop = tornado.ioloop.IOLoop.current()
     try:
         io_loop.start()
