@@ -29,24 +29,18 @@ from tornado.tcpclient import TCPClient
 from tornado.tcpserver import TCPServer
 
 # Bismuth specific modules
-import options as config
-from ann import replace_regex
-from essentials import fee_calculate
-from quantizer import *
-from sqlitebase import SqliteBase
-
-__version__ = '0.0.52'
+import modules.config as config
+from modules.helpers import *
+from modules.sqlitebase import SqliteBase
 
 
-# Limit can be pretty high, only one thread is used for the whole server.
-MAX_CLIENTS = 500
+__version__ = '0.1.0'
 
-# Port we're listening on
-PORT = 8150
 
 
 # Server
 # -----------------------------------------------------------------------------
+
 
 class WalletServer(TCPServer):
     """Tornado asynchronous TCP server."""
@@ -69,6 +63,7 @@ class WalletServer(TCPServer):
         access_log.info("Incoming connection from {}:{} - {} Total Clients".format(ip, fileno, len(self.clients)))
         while not stop_event.is_set():
             try:
+                print("waiting for command")
                 await self.command(stream, ip)
             except StreamClosedError:
                 WalletServer.clients.remove(address)
@@ -143,7 +138,7 @@ class WalletServer(TCPServer):
         if data == "statusget":
             # Get from the node and forward
             node_status = await self.node_status(ip)
-            node_status['wallet_server'] = self.status_dict
+            node_status.append(self.status_dict)
             await self._send(node_status, stream, ip)
             return
         if data == "wstatusget":
@@ -255,7 +250,7 @@ class WalletServer(TCPServer):
             return self.cache['status'][1]
         try:
             # too old, ask the node
-            stream = await TCPClient().connect(CONFIG.node_ip_conf, CONFIG.port)
+            stream = await TCPClient().connect(CONFIG.node_ip, CONFIG.node_port)
             try:
                 await self._send("statusget", stream, ip)
                 res = await self._receive(stream, ip)
@@ -265,14 +260,14 @@ class WalletServer(TCPServer):
                 stream.close()
         except Exception as e:
             print(e)
-            # print(CONFIG.node_ip_conf, CONFIG.port)
+            # print(CONFIG.node_ip, CONFIG.node_port)
         finally:
             if stream:
                 stream.close()
 
     async def node_aliases(self, addresses, ip):
         global CONFIG
-        stream = await TCPClient().connect(CONFIG.node_ip_conf, CONFIG.port)
+        stream = await TCPClient().connect(CONFIG.node_ip, CONFIG.node_port)
         try:
             await self._send("aliasesget", stream, ip)
             await self._send(addresses, stream, ip)
@@ -286,7 +281,7 @@ class WalletServer(TCPServer):
 
     async def add_from_alias(self, alias_resolve, ip):
         global CONFIG
-        stream = await TCPClient().connect(CONFIG.node_ip_conf, CONFIG.port)
+        stream = await TCPClient().connect(CONFIG.node_ip, CONFIG.node_port)
         try:
             await self._send("addfromalias", stream, ip)
             await self._send(alias_resolve, stream, ip)
@@ -300,7 +295,7 @@ class WalletServer(TCPServer):
 
     async def alias_check(self, alias_desired, ip):
         global CONFIG
-        stream = await TCPClient().connect(CONFIG.node_ip_conf, CONFIG.port)
+        stream = await TCPClient().connect(CONFIG.node_ip, CONFIG.node_port)
         try:
             await self._send("aliascheck", stream, ip)
             await self._send(alias_desired, stream, ip)
@@ -314,7 +309,7 @@ class WalletServer(TCPServer):
 
     async def node_alias(self, address, ip):
         global CONFIG
-        stream = await TCPClient().connect(CONFIG.node_ip_conf, CONFIG.port)
+        stream = await TCPClient().connect(CONFIG.node_ip, CONFIG.node_port)
         try:
             await self._send("aliasget", stream, ip)
             await self._send(address, stream, ip)
@@ -328,7 +323,7 @@ class WalletServer(TCPServer):
 
     async def node_tokens(self, address, ip):
         global CONFIG
-        stream = await TCPClient().connect(CONFIG.node_ip_conf, CONFIG.port)
+        stream = await TCPClient().connect(CONFIG.node_ip, CONFIG.node_port)
         try:
             await self._send("tokensget", stream, ip)
             await self._send(address, stream, ip)
@@ -343,7 +338,7 @@ class WalletServer(TCPServer):
     async def node_mpinsert(self, mp_insert, ip):
         # TODO: factorize with node_aliases above
         global CONFIG
-        stream = await TCPClient().connect(CONFIG.node_ip_conf, CONFIG.port)
+        stream = await TCPClient().connect(CONFIG.node_ip, CONFIG.node_port)
         try:
             await self._send("mpinsert", stream, ip)
             await self._send(mp_insert, stream, ip)
@@ -484,9 +479,9 @@ def start_server(port):
     global CONFIG
     server = WalletServer()
     # attach mempool db
-    server.mempool = SqliteBase(options.verbose, db_path='./', db_name='mempool.db', app_log=app_log)
+    server.mempool = SqliteBase(options.verbose, db_path=CONFIG.node_path+'/', db_name='mempool.db', app_log=app_log)
     # attach ledger
-    server.ledger = SqliteBase(options.verbose, db_path=CONFIG.ledger_path_conf, db_name='', app_log=app_log)
+    server.ledger = SqliteBase(options.verbose, db_path=CONFIG.db_path+'/', db_name='ledger.db', app_log=app_log)
     #server.listen(port)
     server.bind(port)
     server.start(1)  # Force one process only
@@ -511,28 +506,26 @@ if __name__ == "__main__":
 
     CONFIG = config.Get()
     CONFIG.read()
-    # Failsafe for config change
-    try:
-        test = CONFIG.node_ip_conf
-    except:
-        CONFIG.node_ip_conf = CONFIG.node_ip 
     #
-    version = CONFIG.version_conf
-    if "testnet" in version:
-        is_testnet = True
-    else:
-        is_testnet = False
+    is_testnet = CONFIG.testnet
+    PORT = CONFIG.port
+    MAX_CLIENTS = CONFIG.max_clients
 
     define("port", default=PORT, help="port to listen on")
     define("verbose", default=False, help="verbose")
     options.parse_command_line()
 
+    # TODO
+    """
     if CONFIG.mempool_ram_conf:
         print("Incompatible setting detected.")
         print("Please edit config.txt, set mempool_ram_conf=False and restart node")
         sys.exit()
+    """
 
-    if not os.path.isfile('./mempool.db'):
+    # TODO: print settings
+
+    if not os.path.isfile(CONFIG.node_path + '/mempool.db'):
         print("mempool.db not found.")
         print("Please edit config.txt, check mempool_ram_conf=False and restart node.")
         sys.exit()
@@ -577,6 +570,6 @@ if __name__ == "__main__":
     else:
         process = None
 
-    app_log.info("Wallet Server {} Starting.".format(__version__))
+    app_log.info("Wallet Server {} Starting on port {}.".format(__version__, options.port))
 
     start_server(options.port)

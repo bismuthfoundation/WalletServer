@@ -19,6 +19,16 @@ A high perf wallet server, independant from a regular bismuth node.
 
 # Usage
 
+
+** IMPORTANT **
+
+CURRENTLY BEING REWRITEN  
+
+
+It now lives in a directory of its own and has its own config.
+
+
+
 ## Installation
 * requires python 3.6+ (async/await)
 * Copy the files over your regular node directory (needs some libs and config files from bismuth core)

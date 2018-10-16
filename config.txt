@@ -1,0 +1,28 @@
+########################################
+# Do **NOT** Edit this config,         #
+# but create a config_custom.txt       #
+# file with only your custom settings  #
+########################################
+
+#port=8155
+
+#node_port=5658
+
+#max_clients=500
+
+#testnet=False
+
+#node_path=../Bismuth
+
+#db_path=../Bismuth/static
+
+debug_level=WARNING
+
+allowed=127.0.0.1,any
+
+banlist=
+
+whitelist=
+
+
+
