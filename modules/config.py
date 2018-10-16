@@ -1,7 +1,7 @@
 
 import os.path as path
 
-__version__ = '0.0.1'
+__version__ = '0.0.2'
 
 
 class Get:
@@ -9,6 +9,7 @@ class Get:
     # "param_name":["type"] or "param_name"=["type","property_name"]
     vars={
         "port":["str"],
+        "websocket_port":["str"],
         "node_port":["str"],
         "max_clients":["int"],
         "testnet":["bool"],
@@ -24,7 +25,8 @@ class Get:
     # Optional default values so we don't bug if they are not in the config.
     # For compatibility
     defaults = {
-        "port": 8155,
+        "port": 8150,
+        "websocket_port": 8155,
         "node_port": 5658,
         "node_path": "../Bismuth",
         "db_path": "../Bismuth/static",

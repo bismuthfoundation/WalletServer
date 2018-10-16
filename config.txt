@@ -4,7 +4,8 @@
 # file with only your custom settings  #
 ########################################
 
-#port=8155
+#port=8150
+#websocket_port=8155
 
 #node_port=5658
 

@@ -2,9 +2,8 @@
 A Tornado based wallet server for Bismuth.
 EggdraSyl - June 2018
 
-Place these files in your bismuth directory. Needs core bismuth libs and config.
 
-pip3 install -r wallet-server-requirements.txt
+pip3 install -r requirements.txt
 """
 
 
@@ -458,6 +457,7 @@ class WalletServer(TCPServer):
                 await asyncio.sleep(30)
             except Exception as e:
                 app_log.error("Error background {}".format(str(e)))
+
 
 
 async def getrights(ip):
