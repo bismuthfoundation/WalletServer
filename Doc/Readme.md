@@ -46,7 +46,7 @@ Sends back the matching alias if any.
 
 ### annget
 
-Get thhe current on chain announce message.
+Get the current on chain announce message.
 
 ### annverget
 
