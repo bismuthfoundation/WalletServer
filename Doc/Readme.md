@@ -71,7 +71,7 @@ Ex:
 
 ### mpget
 
-Returns the list of transactinos currently in mempool.
+Returns the list of transactions currently in mempool.
 
 ### mpinsert (signed_transaction):
 
