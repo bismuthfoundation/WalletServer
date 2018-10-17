@@ -234,7 +234,7 @@ class NodeInterface():
                                                (address, address, limit2))
         return txs
 
-    async def user_addlist(self, address, limit2):
+    async def user_addlist(self, address):
         txs = await self.ledger.async_fetchall("SELECT * FROM transactions WHERE (address = ? OR recipient = ?) "
                                                "ORDER BY block_height DESC",
                                                (address, address))

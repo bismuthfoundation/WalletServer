@@ -10,6 +10,8 @@ pip3 install -r requirements.txt
 
 # TODO: limit clients #
 
+# TODO: send copies of txs directly to pool nodes? Ok if wallet servers are whitelisted.
+
 
 import logging
 import json
