@@ -284,8 +284,8 @@ if __name__ == "__main__":
 
     app_log.warning("Testnet: {}".format(is_testnet))
     # fail safe
-    if is_testnet and int(config.node_port) != 2829:
-        app_log.warning("Testnet is active, but node_port set to {} instead of 2829. Make sure!".format(config.node_port))
+    if is_testnet and int(CONFIG.node_port) != 2829:
+        app_log.warning("Testnet is active, but node_port set to {} instead of 2829. Make sure!".format(CONFIG.node_port))
         time.sleep(2)
 
     if os.name == "posix":
