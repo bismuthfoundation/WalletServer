@@ -203,7 +203,10 @@ def start_server(port):
     global PORT
     global CONFIG
     mempool = SqliteBase(options.verbose, db_path=CONFIG.node_path+'/', db_name='mempool.db', app_log=app_log)
-    ledger = SqliteBase(options.verbose, db_path=CONFIG.db_path+'/', db_name='ledger.db', app_log=app_log)
+    db_name = 'ledger.db'
+    if CONFIG.testnet:
+        db_name = 'test.db'
+    ledger = SqliteBase(options.verbose, db_path=CONFIG.db_path+'/', db_name=db_name, app_log=app_log)
 
     node_interface = NodeInterface(mempool, ledger, CONFIG)
     server = WalletServer()
@@ -280,6 +283,10 @@ if __name__ == "__main__":
     access_log.addHandler(rotateHandler2)
 
     app_log.warning("Testnet: {}".format(is_testnet))
+    # fail safe
+    if is_testnet and int(config.node_port) != 2829:
+        app_log.warning("Testnet is active, but node_port set to {} instead of 2829. Make sure!".format(config.node_port))
+        time.sleep(2)
 
     if os.name == "posix":
         process = psutil.Process()
