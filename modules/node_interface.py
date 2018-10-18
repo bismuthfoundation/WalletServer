@@ -18,6 +18,9 @@ from modules.helpers import *
 __version_ = '0.0.2'
 
 
+# TODO: factorize all commands that are sent "as is" to the local node.
+
+
 def method_params_count(func):
     return len(signature(func).parameters)
 

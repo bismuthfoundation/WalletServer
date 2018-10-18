@@ -67,6 +67,9 @@ class ChannelHandler(tornado.websocket.WebSocketHandler):
         global app_log
         access_log.info("open")
 
+    async def send_ko(self, reason):
+        await self.write_message('["Ko", "{}"]'.format(reason))
+
     async def on_message(self, message):
         """
         Message received on channel
@@ -74,6 +77,10 @@ class ChannelHandler(tornado.websocket.WebSocketHandler):
         app_log.info("Message {}".format(message))
         message = json.loads(message)
         # TODO: check with message[0] that we have the right number of params
+        params_count = NODE_INTERFACE.param_count_of(message[0], ['none'])
+        if params_count < 0:
+            await self.send_ko("Unknown command")
+            return
         # string, or dict that will be json encoded
         res = await NODE_INTERFACE.call_user(message)
         await self.write_message(json.dumps(res))
