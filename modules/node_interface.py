@@ -15,7 +15,7 @@ import tornado.iostream
 from modules.helpers import *
 
 
-__version_ = '0.0.2'
+__version_ = '0.0.3'
 
 
 # TODO: factorize all commands that are sent "as is" to the local node.
@@ -120,6 +120,26 @@ class NodeInterface():
         except Exception as e:
             print(e)
             # print(CONFIG.node_ip, CONFIG.node_port)
+        finally:
+            if stream:
+                stream.close()
+
+    async def user_statusjson(self):
+        # don't hammer the node, cache recent info
+        if self.cached("statusjson"):
+            return self.cache['statusjson'][1]
+        stream = None
+        try:
+            stream = await self._node_stream()
+            try:
+                await self._send("statusjson", stream)
+                res = await self._receive(stream)
+                self.set_cache("statusjson", res)
+                return res
+            except KeyboardInterrupt:
+                stream.close()
+        except Exception as e:
+            print(e)
         finally:
             if stream:
                 stream.close()
