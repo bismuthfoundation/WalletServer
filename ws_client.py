@@ -38,12 +38,17 @@ async def statusget(ws):
     message = '["statusget"]'
     await command(ws, message)
 
+async def blockget(ws):
+    message = '["blockget", [558742]]'
+    await command(ws, message)
+
 
 async def test():
     ws = await websocket_connect(URL)
     await getbalance(ws, "0634b5046b1e2b6a69006280fbe91951d5bb5604c6f469baa2bcd840")
     await statusget(ws)
     await statusjson(ws)
+    await blockget(ws)
 
 
 if __name__ == "__main__":
