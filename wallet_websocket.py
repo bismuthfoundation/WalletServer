@@ -113,7 +113,10 @@ def start_server(port):
     global NODE_INTERFACE
 
     mempool = SqliteBase(options.verbose, db_path=CONFIG.node_path + '/', db_name='mempool.db', app_log=app_log)
-    ledger = SqliteBase(options.verbose, db_path=CONFIG.db_path + '/', db_name='ledger.db', app_log=app_log)
+    db_name = 'ledger.db'
+    if CONFIG.testnet:
+        db_name = 'test.db'
+    ledger = SqliteBase(options.verbose, db_path=CONFIG.db_path+'/', db_name=db_name, app_log=app_log)
     NODE_INTERFACE = NodeInterface(mempool, ledger, CONFIG)
 
     app = tornado.web.Application(ChannelHandler.urls())
