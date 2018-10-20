@@ -65,7 +65,15 @@ Ex:
 
 ### blocklast
 
-Returns the current block height of the local node.
+Returns the latest coinbase transaction from the local node.  
+The latest block height is part of the `statusjson` output and does not need that command.  
+This call should not be part of regular wallet operation.
+
+Returns
+`["block_height", "timestamp", "address", "recipient", "amount", "signature", "public_key", "block_hash", "fee", "reward", "operation": "nonce"}`
+
+Ex:
+`[872105, 1540050862.85, "3d2e8fa99657ab59242f95ca09e0698a670e65c3ded951643c239bc7", "3d2e8fa99657ab59242f95ca09e0698a670e65c3ded951643c239bc7", 0, "Vs8WyVwmSV9J3OdliuHTOcLy6ZF1x+wjg7qGTMiv5oWfe7t6vK5wBEvqD/j4BOvjKrgWoXs84rCzM1JLGPuUCgbCgfINrFCdo+y1lKIbioUiI2PjCWatJuZCBGMkWKzvN0cTFi5yh0jnmkq2BG2m7uNWnrJUsGfzA951WnlUxylQAEX5pVZRvWaGR6P3+4iz+yZ.....1TlpOT0xhN1VmRjhOK3pFSEVWCjZDU3lveWpTZkdNTjBMVk1MK29xL0trQ0F3RUFBUT09Ci0tLS0tRU5EIFBVQkxJQyBLRVktLS0tLQ==", "325586170c2a53231c2d44b349159e9bccd00616c963e6f08ea19cb8", 0, 12.45579, "0", "00000000000000000000000000000000000000000000000000003299>51051:;9200"]`
 
 ### diffget
 
