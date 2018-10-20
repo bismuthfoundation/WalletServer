@@ -244,6 +244,10 @@ class NodeInterface():
         self.set_cache("mpget", mp)
         return mp
 
+    async def user_mpgetjson(self):
+        mp = self.user_mpget()
+        return [dict(zip(TX_KEYS, tx)) for tx in mp]
+
     async def user_annverget(self):
         if self.cached("annverget", 60):
             return self.cache['annverget'][1]
