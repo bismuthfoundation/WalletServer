@@ -15,10 +15,12 @@ import tornado.iostream
 from modules.helpers import *
 
 
-__version_ = '0.0.3'
+__version_ = '0.0.4'
 
 
 # TODO: factorize all commands that are sent "as is" to the local node.
+
+TX_KEYS = ["block_height", "timestamp", "address", "recipient", "amount", "signature", "public_key", "block_hash", "fee", "reward", "operation", "openfield"]
 
 
 def method_params_count(func):
@@ -251,11 +253,22 @@ class NodeInterface():
         self.set_cache("annverget", ann_ver)
         return ann_ver
 
-    async def user_addlistlim(self, address, limit2):
+    # TODO: review this param thing.
+    async def user_addlistlim(self, address, limit2=None):
+        address, limit2 = address
         txs = await self.ledger.async_fetchall("SELECT * FROM transactions WHERE (address = ? OR recipient = ?) "
                                                "ORDER BY block_height DESC LIMIT ?",
                                                (address, address, limit2))
         return txs
+
+    async def user_addlistlimjson(self, address, limit2=None):
+        address, limit2 = address
+        txs = await self.ledger.async_fetchall("SELECT * FROM transactions WHERE (address = ? OR recipient = ?) "
+                                               "ORDER BY block_height DESC LIMIT ?",
+                                               (address, address, limit2))
+
+        return [dict(zip(TX_KEYS, tx)) for tx in txs]
+
 
     async def user_addlist(self, address):
         txs = await self.ledger.async_fetchall("SELECT * FROM transactions WHERE (address = ? OR recipient = ?) "

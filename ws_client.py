@@ -45,6 +45,10 @@ async def blockget(ws):
     message = '["blockget", [558742]]'
     await command(ws, message)
 
+async def addlistlimjson(ws, address, limit):
+    message = '["addlistlimjson", ["{}", {}]]'.format(address, limit)
+    await command(ws, message)
+
 
 async def test():
     ws = await websocket_connect(URL)
@@ -52,6 +56,7 @@ async def test():
     await statusget(ws)
     await statusjson(ws)
     await blockget(ws)
+    await addlistlimjson(ws, "0634b5046b1e2b6a69006280fbe91951d5bb5604c6f469baa2bcd840", 10)
 
 
 if __name__ == "__main__":
