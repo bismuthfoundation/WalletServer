@@ -190,3 +190,8 @@ Returns the list of tokens and amount for that address.
 56 hex chars, with a-f being lowercase.
 
 Matching regexp: `[a-f0-9]{56}`
+
+### Bismuth transaction id
+
+The txid of a transaction are the first 56 chars of the transaction signature.  
+This signature is encoded as a base64 encoded string in the above messages.
