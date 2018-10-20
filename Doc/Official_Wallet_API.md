@@ -2,7 +2,11 @@
 
 The Bismuth network serves an official API to be used by light wallets.
 
-## Endpoint
+THIS IS ONLY A DRAFT SO FAR
+---------------------------
+
+
+## Endpoint
 
 Base URL is   
 `https://api.bismuth.live/servers/wallet/`
