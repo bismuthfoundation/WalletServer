@@ -9,6 +9,7 @@ WIP
 - wallet_server
 - wallet_websocket
 
+
 ## Available commands
 
 ### addfromalias (alias)
@@ -151,6 +152,11 @@ peers.consensus is the list of the peers IP in consensus.
 diff is a list with several info related to the diff adjustment algorithm:  
 `[difficulty, difficulty_dropped, time_to_generate, diff_previous_block, block_time, neetwork_hashrate, diff_adjustment, block_height]`  
 
+- difficulty_dropped is a lower difficulty that can be used if the current block is hard to find. Part of tail removal.  
+  You can ignore that one, just use difficulty.
+- time_to_generate is the last block time  
+- block_time is the average block time over the last 1440 blocks (=24H roughly, used by the difficulty feedback controler)
+
 
 ### statusjson
 *superceed the deprecated "statusget" command*
@@ -177,3 +183,10 @@ Takes an address.
 Returns the list of tokens and amount for that address.
 
 
+## Other info
+
+### Bismuth address
+
+56 hex chars, with a-f being lowercase.
+
+Matching regexp: `[a-f0-9]{56}`
