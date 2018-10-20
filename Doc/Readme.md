@@ -140,7 +140,8 @@ Cached for a small time.
 
 Returns 
 `[node_address, nodes_count, nodes_list, threads_count, uptime, peers.consensus, peers.consensus_percentage, VERSION, diff, server_timestamp]`
-Ex:
+
+Ex:  
 `["f67350e6e66fba4bc6f364a50f403a33c8b84b670d1fc762318aaa32", 17, ["51.15.46.90", "51.15.254.16", "51.15.211.156", "91.121.87.99", "176.31.245.46", "51.15.118.29", "198.245.62.30", "188.165.199.153", "46.105.43.213", "51.15.201.253", "51.15.213.94", "66.70.181.150", "91.121.77.179", "163.172.222.163", "51.15.47.212", "31.31.75.71", "127.0.0.1"], 22, 46151, 868704, 100.0, "4.2.8", [110.9695450958, 110.9695450958, 1.3199999332427979, 110.9689280571, 61.51417361117072, 37246896409942.2, 0.0006170386529355149, 868704], "1539846617.79"]`
 
 node_address is potentially anonymized.  
@@ -173,6 +174,6 @@ Returns a json dict
 
 Takes an address.
 
-Sends back the list of tokens and amount for that address.
+Returns the list of tokens and amount for that address.
 
 
