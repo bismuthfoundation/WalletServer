@@ -22,14 +22,14 @@ Returns matching address
 Returns a list with all transactions from `address`, last one first.  
 Use with care.
 
-Each transaction is
+Each transaction is  
 `["block_height", "timestamp", "address", "recipient", "amount", "signature", "public_key", "block_hash", "fee", "reward", "operation", "openfield"]`
 
 ### addlistlim (address, limit)
 
 Returns a list of the latest `limit` transactions from `address` , last one first.
 
-Each transaction is
+Each transaction is  
 `["block_height", "timestamp", "address", "recipient", "amount", "signature", "public_key", "block_hash", "fee", "reward", "operation", "openfield"]`
 
 Ex:
@@ -39,6 +39,14 @@ Ex:
 "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQ0lqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FnOEFNSUlDQ2dLQ0FnRUFwbjBoM3BiZkZMcUJzdy92ZGw3ZAp5Z0xrNWFpUW1tZlhaNzRQTE56eVQwb3FTNWJORUZhSXIzdVNwUjk4WG84Rm5lOGhjbkxvVFB0Y1lhWndUWDJECjRjakxhYm9HaWxkY1l4Vkt3ajNRQlh....0WFdXLzliYUw3bGUvVXhwbTFXaEpQRDUKM1RmemJBSy8wNE9MT3dxc2RjdFBTbUp1cHRiYVVwTTNIeEtGbFBQemFIZ2NQRW55VC9HRHJwUUJxdXFJKzVkTApabzBXZ2ZXMEtzRTFiVXdWNTJUOEhnblBDck9EbnczeUhFVVdyTjNMZUszZjFkNnQvM200Ujc4TmJUQzJlT0lsCnpvNjlvRTFyMzJnWUp6dndwcXJwNGYwQ0F3RUFBUT09Ci0tLS0tRU5EIFBVQkxJQyBLRVktLS0tLQ==", 
 "325e8f26b6ed9b8d0601c02fcefbf2871e4211e15f7a0459eb208698", 0.01006, 0, "token:transfer", "egg:50"]
 ```
+
+### addlistlimjson (address, limit)
+
+json version of `addlistlim`.  
+Returns a list of the latest `limit` transactions from `address` , last one first.  
+Each transaction is a dict, with the keys being  
+`["block_height", "timestamp", "address", "recipient", "amount", "signature", "public_key", "block_hash", "fee", "reward", "operation", "openfield"]`
+
 
 ### aliascheck (alias)
 
@@ -77,6 +85,10 @@ Ex:
 `["98.34764109", "27908.23206709", "27852.10000000", "0.98335000", "43.19892400", "98.34764109000224"]`
 
 
+### balancegetjson (address)
+
+Verbose version of `balanceget`, as a keyed json object rather than a bare list.
+
 ### blocklast
 
 Returns the latest coinbase transaction from the local node.  
@@ -100,7 +112,15 @@ Ex:
 
 ### mpget
 
-Returns the list of transactions currently in mempool.
+Returns the list of transactions currently in mempool.  
+
+Each transaction is  
+`["block_height", "timestamp", "address", "recipient", "amount", "signature", "public_key", "block_hash", "fee", "reward", "operation", "openfield"]`
+
+### mpgetjson (address)
+
+Verbose version of `mpget`, with each transaction being a keyed json object rather than a bare list.
+
 
 ### mpinsert (signed_transaction):
 
@@ -132,7 +152,7 @@ diff is a list with several info related to the diff adjustment algorithm:
 
 
 ### statusjson
-*superceed deprecated "statusget" command*
+*superceed the deprecated "statusget" command*
 
 Get extended status info from the companion node.  
 Cached for a small time.  
