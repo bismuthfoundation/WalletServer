@@ -29,6 +29,9 @@ async def command(ws, command):
 async def getbalance(ws, address):
     message = '["balanceget", "{}"]'.format(address)
     await command(ws, message)
+    # Json version
+    message = '["balancegetjson", "{}"]'.format(address)
+    await command(ws, message)
 
 async def statusjson(ws):
     message = '["statusjson"]'

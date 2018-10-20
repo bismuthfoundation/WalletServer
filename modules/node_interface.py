@@ -322,3 +322,8 @@ class NodeInterface():
         balance_no_mempool = float(credit_ledger) - float(debit_ledger) - float(fees) + float(rewards)
         # app_log.info("Mempool: Projected transction address balance: " + str(balance))
         return str(balance), str(credit_ledger), str(debit), str(fees), str(rewards), str(balance_no_mempool)
+
+    async def user_balancegetjson(self, balance_address):
+        values = await self.user_balanceget(balance_address)
+        keys = ["balance", "total_credits", "total_debits", "total_fees", "total_rewards", "balance_no_mempool"]
+        return dict(zip(keys, values))
