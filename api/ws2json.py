@@ -1,10 +1,33 @@
-import connections
-import socks
+"""
+ws2json.py
+
+Tests a list of official wallet servers, and produces the json output needed by the official API.
+
+To be run by a cron everty 5 minutes.
+"""
+
 import json
-import urllib3
 import socket
 
-def convert_ip_port(ip, some_port):
+import connections
+import socks
+import urllib3
+
+# global vars come first - if need to be globals, then use UPPERCASE
+
+# List of wallet servers ip or ip:port to test
+# TODO: load from json with a helper function (separate code from data)
+LIGHT_IP = ["wallet.bismuthplatform.de:7150","wallet.bismuth.online:8150","wallet1.bismuth.online:8150","bismuth.live:8150", "testnet2828.bismuthplatform.de:8150"]
+# Default port to use if none is provided
+DEFAULT_PORT = 7150
+
+# a dict to lookup height of a given ip:port
+HEIGHTS = {}
+
+
+# Then functions
+
+def convert_ip_port(ip, some_port=DEFAULT_PORT):
     """
     Get ip and port, but extract port from ip if ip was as ip:port
     :param ip:
@@ -13,73 +36,99 @@ def convert_ip_port(ip, some_port):
     """
     if ':' in ip:
         ip, some_port = ip.split(':')
-    return ip, some_port
-    
-light_ip = ["wallet.bismuthplatform.de:7150","wallet.bismuth.online:8150","wallet1.bismuth.online:8150","bismuth.live:8150", "testnet2828.bismuthplatform.de:8150"]
-port = 7150
-ws_stats=[]
-heights={}
-backup_height = False
+    # since we have a function, make it returns the right type from the start
+    return ip, int(some_port)
 
-for address in light_ip:
-            
-    result_collection={} 
-    ip, local_port = convert_ip_port(address, port)
-    #app_log.info("Asking {}:{}".format(ip, local_port))
-    print("Asking {}:{}".format(ip, local_port))
+
+def test_legacy_server(an_address, the_network_height=False):
+    """
+    Takes an ip:port string, the current network height if known and returns a qualified
+    {'label':address,'ip':ip_addr, 'port':local_port, 'active':active, 'clients':clients, 'total_slots':max_clients, 'last_active':last_active, 'country':country}
+    dict
+    """
+    ip, port = convert_ip_port(an_address)
+    # app_log.info("Asking {}:{}".format(ip, local_port))
+    print("Asking {}:{}".format(ip, port))
+    active = True  # Active by default
     try:
         s = socks.socksocket()
         s.settimeout(3)
-        #connect to wallet-server and get statusjson info
-        s.connect((ip, int(local_port)))
+        # connect to wallet-server and get statusjson info
+        s.connect((ip, port))
         connections.send(s, "statusjson", 10)
         result = connections.receive(s, 10)
-        heights[address] = result.get("blocks")
+        HEIGHTS[address] = result.get("blocks")
+        if the_network_height and HEIGHTS[address] < the_network_height - 10:
+            # we have a reference, and we are late.
+            print("{} is too late: {} vs {}".format(an_address, HEIGHTS[address], the_network_height))
+            active = False
         connections.send(s, "wstatusget", 10)
         result_ws = connections.receive(s, 10)
         clients = result_ws.get('clients')
         max_clients = 500
         last_active = result.get("server_timestamp")
     except Exception as e:
-        clients = "unknown"
-        last_active = "unknown"
-        max_clients = "unknown"
-        heights[address] = 0
-        #app_log.info("WalletServer {}:{} not answering".format(ip, local_port))
-           
+        # prefer error values of the same type as expected values
+        print("Exception {} querying {}".format(e, an_address))
+        clients = -1
+        last_active = 0
+        max_clients = -1
+        HEIGHTS[address] = 0
+        active = False
+        # app_log.info("WalletServer {}:{} not answering".format(ip, local_port))
+
+    country = "N/A"
+    ip_addr = socket.gethostbyname(ip)
+    return {'label': address, 'ip': ip_addr, 'port': port, 'active': active, 'clients': clients,
+            'total_slots': max_clients, 'last_active': last_active, 'country': country}
+
+
+def get_network_height():
+    """
+    Returns the network height from bismuth.online API.
+    Returns False if the API was not available.
+    """
     http = urllib3.PoolManager()
     try:
         chainjson = http.request('GET', 'http://78.28.227.89/api/stats/latestblock')
         chain = json.loads(chainjson.data.decode('utf-8'))
-        print(heights[address])
-        if heights[address] < (int(chain.get("height")) - 10):
-            active = False
-        else:
-            active = True
-        
+        height = int(chain["height"])
+        print("Bismuth.online API says network height is {}".format(height))
+        return height
+
     except Exception as e:
-        #app_log.warning("bismuth.online API not reachable, using back method for testing "active")
-        backup_height = True
-        active = "unknown"
-        
-    country = "NA"
-    ip_addr = socket.gethostbyname(ip)
-    result_collection.update({'label':address,'ip':ip_addr, 'port':local_port, 'active':active, 'clients':clients, 'total_slots':max_clients, 'last_active':last_active, 'country':country})
-    ws_stats.append(result_collection)
+        print("bismuth.online API not reachable, using back method for testing active")
+        return False
 
 
+# Main code comes at the end, after
+if __name__ == "__main__":
 
-if backup_height:
-    max_height = max(heights.values())
-    for key in heights:
-        listindex = [i for i,x in enumerate(heights) if x == key]
-        if heights.get(key) < (max_height - 10):
-            ws_stats[listindex[0]]['active'] = False
-        else:
-            ws_stats[listindex[0]]['active'] = True
+    # Try to get network height from API
+    network_height = get_network_height()
 
-else:
-    pass    
-print(ws_stats)  
-with open('legacy.json', 'w') as file:  
-    json.dump(ws_stats, file)  
+    # prefer explicit names to abbrev.
+    wallets_stats = []
+    for address in LIGHT_IP:
+        # prefer several small functions to one long code
+        test_result = test_legacy_server(address, network_height)
+        # this will also allow to run one test per thread later on, instead of in sequence.
+        wallets_stats.append(test_result)
+
+    if not network_height:
+        # The API was not responding, use fallback method to inactivate late servers
+        # This could go into a function as well
+        max_height = max(HEIGHTS.values())
+        for key in HEIGHTS:
+            listindex = [i for i,x in enumerate(HEIGHTS) if x == key]
+            if HEIGHTS.get(key) < (max_height - 10):
+                wallets_stats[listindex[0]]['active'] = False
+            else:
+                wallets_stats[listindex[0]]['active'] = True
+
+    else:
+        pass
+
+    print(wallets_stats)
+    with open('legacy.json', 'w') as file:
+        json.dump(wallets_stats, file)
