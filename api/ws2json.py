@@ -6,8 +6,12 @@ Tests a list of official wallet servers, and produces the json output needed by 
 To be run by a cron everty 5 minutes.
 """
 
+import os
 import json
 import socket
+import logging
+from logging.handlers import RotatingFileHandler
+
 
 import connections
 import socks
@@ -19,11 +23,13 @@ import urllib3
 # TODO: load from json with a helper function (separate code from data)
 LIGHT_IP = ["wallet.bismuthplatform.de:7150","wallet.bismuth.online:8150","wallet1.bismuth.online:8150","bismuth.live:8150", "testnet2828.bismuthplatform.de:8150"]
 # Default port to use if none is provided
-DEFAULT_PORT = 7150
+DEFAULT_PORT = 8150
 
 # a dict to lookup height of a given ip:port
 HEIGHTS = {}
 
+# variable to have zero terminal output, but one notice if something with level warning happened or not
+global WARN
 
 # Then functions
 
@@ -46,9 +52,11 @@ def test_legacy_server(an_address, the_network_height=False):
     {'label':address,'ip':ip_addr, 'port':local_port, 'active':active, 'clients':clients, 'total_slots':max_clients, 'last_active':last_active, 'country':country}
     dict
     """
+    global WARN
+    
     ip, port = convert_ip_port(an_address)
-    # app_log.info("Asking {}:{}".format(ip, local_port))
-    print("Asking {}:{}".format(ip, port))
+    app_log.info("Asking {}:{}".format(ip, port))
+    #print("Asking {}:{}".format(ip, port))
     active = True  # Active by default
     try:
         s = socks.socksocket()
@@ -60,7 +68,9 @@ def test_legacy_server(an_address, the_network_height=False):
         HEIGHTS[address] = result.get("blocks")
         if the_network_height and HEIGHTS[address] < the_network_height - 10:
             # we have a reference, and we are late.
-            print("{} is too late: {} vs {}".format(an_address, HEIGHTS[address], the_network_height))
+            #print("{} is too late: {} vs {}".format(an_address, HEIGHTS[address], the_network_height))
+            app_log.warning("{} is too late: {} vs {}".format(an_address, HEIGHTS[address], the_network_height))
+            WARN = True
             active = False
         connections.send(s, "wstatusget", 10)
         result_ws = connections.receive(s, 10)
@@ -69,13 +79,14 @@ def test_legacy_server(an_address, the_network_height=False):
         last_active = result.get("server_timestamp")
     except Exception as e:
         # prefer error values of the same type as expected values
-        print("Exception {} querying {}".format(e, an_address))
+        #print("Exception {} querying {}".format(e, an_address))
         clients = -1
         last_active = 0
         max_clients = -1
         HEIGHTS[address] = 0
         active = False
-        # app_log.info("WalletServer {}:{} not answering".format(ip, local_port))
+        app_log.warning("Exception {} querying {}".format(e, an_address))
+        WARN = True
 
     country = "N/A"
     ip_addr = socket.gethostbyname(ip)
@@ -88,22 +99,38 @@ def get_network_height():
     Returns the network height from bismuth.online API.
     Returns False if the API was not available.
     """
+    global WARN
+    
     http = urllib3.PoolManager()
     try:
         chainjson = http.request('GET', 'http://78.28.227.89/api/stats/latestblock')
         chain = json.loads(chainjson.data.decode('utf-8'))
         height = int(chain["height"])
-        print("Bismuth.online API says network height is {}".format(height))
+        #print("Bismuth.online API says network height is {}".format(height))
+        app_log.info("Bismuth.online API says network height is {}".format(height))
         return height
 
     except Exception as e:
-        print("bismuth.online API not reachable, using back method for testing active")
+        #print("bismuth.online API not reachable, using back method for testing active")
+        app_log.warning("bismuth.online API not reachable, using back method for testing active")
+        WARN = True
         return False
 
 
 # Main code comes at the end, after
 if __name__ == "__main__":
 
+    WARN = False
+    
+    app_log = logging.getLogger("wallet_api")
+    app_log.setLevel(logging.INFO)
+    logfile = os.path.abspath("jsonapi.log")
+    # Rotate log after reaching 512K, keep 2 old copies.
+    rotateHandler = RotatingFileHandler(logfile, "a", 512 * 1024, 2)
+    formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+    rotateHandler.setFormatter(formatter)
+    app_log.addHandler(rotateHandler)
+    
     # Try to get network height from API
     network_height = get_network_height()
 
@@ -128,7 +155,11 @@ if __name__ == "__main__":
 
     else:
         pass
+    
+    if WARN:
+        print("There are warnings, pls see jsonapi.log for details")
+    else:
+        print("no Warnings occured, to see Infos, open jsonapi.log")
 
-    print(wallets_stats)
     with open('legacy.json', 'w') as file:
         json.dump(wallets_stats, file)
