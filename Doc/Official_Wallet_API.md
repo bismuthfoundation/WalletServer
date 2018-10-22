@@ -40,7 +40,7 @@ Each item is a dict with the following keys:
 
 `https://api.bismuth.live/servers/wallet/websocket.json`
 
-Returns a list of officially supported wallet servers.
+Returns a list of officially supported websocket wallet servers.
 
 Each item is a dict with the following keys:  
 `[label, ip, port, active, clients, total_slots, last_active, country]`

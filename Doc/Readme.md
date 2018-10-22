@@ -26,9 +26,10 @@ Use with care.
 Each transaction is  
 `["block_height", "timestamp", "address", "recipient", "amount", "signature", "public_key", "block_hash", "fee", "reward", "operation", "openfield"]`
 
-### addlistlim (address, limit)
+### addlistlim (address, limit=10, offset=0)
 
-Returns a list of the latest `limit` transactions from `address` , last one first.
+Returns a list of the latest `limit` transactions from `address` , starting at optional offset `offset`,  
+most recent one first.
 
 Each transaction is  
 `["block_height", "timestamp", "address", "recipient", "amount", "signature", "public_key", "block_hash", "fee", "reward", "operation", "openfield"]`
@@ -41,7 +42,7 @@ Ex:
 "325e8f26b6ed9b8d0601c02fcefbf2871e4211e15f7a0459eb208698", 0.01006, 0, "token:transfer", "egg:50"]
 ```
 
-### addlistlimjson (address, limit)
+### addlistlimjson (address, limit=10, offset=0)
 
 json version of `addlistlim`.  
 Returns a list of the latest `limit` transactions from `address` , last one first.  
@@ -181,6 +182,50 @@ Returns a json dict
 Takes an address.
 
 Returns the list of tokens and amount for that address.
+
+
+### txget (txid, addresses=[]):
+*Wallet server only command, this is __not__ a regular node command* 
+
+Takes a txid (56 char, base64).  
+Takes an optional list of possible recipient addresses (the known wallet addresses)
+
+> Txget is way faster if you can provide an optional recipient address or list of possible recipient addresses
+
+Returns the full transaction of an error message   
+`["Ko", "No such TxId"]`
+
+Each transaction is  
+`["block_height", "timestamp", "address", "recipient", "amount", "signature", "public_key", "block_hash", "fee", "reward", "operation", "openfield"]`
+
+Ex:
+```
+[873833, 1540156329.18, "0634b5046b1e2b6a69006280fbe91951d5bb5604c6f469baa2bcd840", 
+"d2f59465568c120a9203f9bd6ba2169b21478f4e7cb713f61eaa1ea0", 0, 
+"Zr7jd0cYxshZiTdZVlSH3vrS9e7Ixb+VZ+KDCcKc3+noS+2lVy7qE/qa1KECugNSIhOUcMj0S3mx2gG7y8tIjLnnw/qzZViXaMMOUOsyX7HRfuP4ujh3xJyeTTpAiXt6SaOPIz91HdU6hvuegffKYvmfcQGHgtpEOOoSSC39DWjzrcNMzmjV1SxlpcWUeQyoJH9DR83eq6553NnZMrRehiD0TBsx3QclE9s4q862s7gCZ88RMLWtCDxCsH4QOiAUbGo3DAZLTXDN7VU3twseYgq3wy7qAwrOOTcZI7Tl02QNb2GLfy0Lwep//BsZ3h8ZaUiSkcFwyzxr7lhlvcXg/M6Mmkz9F2CMcpvKUhZ2GtaM1UtGbW6KrXQvdcKqT6rupl9V8zX9zeRtGNdLnE3Ihlv6z8+MiUKSvVm7jSh9Npuau3eNqivktypG3emNAUxffhOx3FKZpZNpzuUtcQC8HHvW8E10Ig5tYp6LciKxTzoqIV/JiQ12gETQrh0PrH4wTI2ZNs83kNXKDHSV0DFFAYAW20/iLehsUka7fj5xQthjr6ECTkQpxmKJ9WPA587oltOvLYKnN4k+BJWSGvavkXYk+SsbS4/eQQ1jLWOISw+8SH4vkbcH4Hop31b44rinCIGc4mGjeIwWEvgnEOPXiFulmyIDwZ+YO5gVrDuhhFo=", 
+"LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQ0lqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FnOEFNSUlDQ2dLQ0FnRUFvQm9wTnpXTURuclNzMnU4aldJUgp2SG4zMWE3U0ZPczdBOFdUQUF0cEk0L2NTbjlXOVZnVmMrdXJOS2U0eTB1NVJLVWRRTGI0WUpwb3F3ai94b0NYCkg0Zk9YR3BtUGJFd3hyTjljeFpEdDFyazJ4OHV0RkFhOU92ZlFIS1NXV2dWTlAxZDZ1L3k0REhiYzVSTllwUi8Kb1ByOHVscWtxeEJIUGJXOEkya2duWGlkSDM3ZlpOYmhFaXMxeW43M0d4Q2VwL3Z1TWVwOVZKc2gwWUE0dFRTWgpCZUw5OUhTNEhBRCtOM2s2MVlNOWxsSm1QVlVEekpPMEN2d29ZNHdDUjhIdW1LenJTcnhtYUxEN1NTa3hMVlp0ClBNWGNnQjBQK0V4UTk3emxBVHovZkFrWkFXVGYyY01MWG1DeDRWMUxBNGQvOEtXS3VXdXd1dDYwM3grNHBVYUYKbE9kdTlnVmpma2xTNWRPNFByZDNxbEhiMC9NakI2eUFabUpzbnBIaU5TZW1nd0hRYi8rZk04MEdSOGZYWTFOSgpuMTd2a2Q4KzdVV1ZxeHBVVk5CcTU1RmQ3NExZNVAySFJoM0tyNXlrMkxZM1dqbmV4ZXpSWW95ME11SE9lNVd4CkJFYnlob3JzSGhydTB6elRNbHRkL2g0eWgvUU9HWkxTaUc1OFJ3UFZZRW9RQk1jdThXKzJQdjBRbkhCejRyRzQKdFBHV280WWJkTzREb2VNLytORkI2Y0x1Ky9IQ1J4eHp2Y2tZOS85NXZHZU1LU1hWZEdNWm5BSGVGT1BibnJseQpFRVR5STVLUk5QWjVOUEZMTVpETGN6K1lVRjVrMGd1M1ZUUStIV1gyZ1RiVTdFSENYcWpKRVpONFYyS1hsMzhRCjJZRk42ZGd6WU0rTnlVTENrZTVWV05NQ0F3RUFBUT09Ci0tLS0tRU5EIFBVQkxJQyBLRVktLS0tLQ==", 
+"13a022d61eec403b8966ebe4036522399f76a5ca8fa34609be7748e9", 
+0.01021, 0, "", "msg=This is a message"]
+```
+
+### txgetjson (txid, addresses=[]):
+*Wallet server only command, this is __not__ a regular node command* 
+
+Like txget, but sends back a dict, with the keys being  
+`["block_height", "timestamp", "address", "recipient", "amount", "signature", "public_key", "block_hash", "fee", "reward", "operation", "openfield"]`
+
+Ex:
+```
+{"block_height": 873833, "timestamp": 1540156329.18, 
+"address": "0634b5046b1e2b6a69006280fbe91951d5bb5604c6f469baa2bcd840", 
+"recipient": "d2f59465568c120a9203f9bd6ba2169b21478f4e7cb713f61eaa1ea0", 
+"amount": 0, 
+"signature": "Zr7jd0cYxshZiTdZVlSH3vrS9e7Ixb+VZ+KDCcKc3+noS+2lVy7qE/qa1KECugNSIhOUcMj0S3mx2gG7y8tIjLnnw/qzZViXaMMOUOsyX7HRfuP4ujh3xJyeTTpAiXt6SaOPIz91HdU6hvuegffKYvmfcQGHgtpEOOoSSC39DWjzrcNMzmjV1SxlpcWUeQyoJH9DR83eq6553NnZMrRehiD0TBsx3QclE9s4q862s7gCZ88RMLWtCDxCsH4QOiAUbGo3DAZLTXDN7VU3twseYgq3wy7qAwrOOTcZI7Tl02QNb2GLfy0Lwep//BsZ3h8ZaUiSkcFwyzxr7lhlvcXg/M6Mmkz9F2CMcpvKUhZ2GtaM1UtGbW6KrXQvdcKqT6rupl9V8zX9zeRtGNdLnE3Ihlv6z8+MiUKSvVm7jSh9Npuau3eNqivktypG3emNAUxffhOx3FKZpZNpzuUtcQC8HHvW8E10Ig5tYp6LciKxTzoqIV/JiQ12gETQrh0PrH4wTI2ZNs83kNXKDHSV0DFFAYAW20/iLehsUka7fj5xQthjr6ECTkQpxmKJ9WPA587oltOvLYKnN4k+BJWSGvavkXYk+SsbS4/eQQ1jLWOISw+8SH4vkbcH4Hop31b44rinCIGc4mGjeIwWEvgnEOPXiFulmyIDwZ+YO5gVrDuhhFo=", 
+"public_key": "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQ0lqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FnOEFNSUlDQ2dLQ0FnRUFvQm9wTnpXTURuclNzMnU4aldJUgp2SG4zMWE3U0ZPczdBOFdUQUF0cEk0L2NTbjlXOVZnVmMrdXJOS2U0eTB1NVJLVWRRTGI0WUpwb3F3ai94b0NYCkg0Zk9YR3BtUGJFd3hyTjljeFpEdDFyazJ4OHV0RkFhOU92ZlFIS1NXV2dWTlAxZDZ1L3k0REhiYzVSTllwUi8Kb1ByOHVscWtxeEJIUGJXOEkya2duWGlkSDM3ZlpOYmhFaXMxeW43M0d4Q2VwL3Z1TWVwOVZKc2gwWUE0dFRTWgpCZUw5OUhTNEhBRCtOM2s2MVlNOWxsSm1QVlVEekpPMEN2d29ZNHdDUjhIdW1LenJTcnhtYUxEN1NTa3hMVlp0ClBNWGNnQjBQK0V4UTk3emxBVHovZkFrWkFXVGYyY01MWG1DeDRWMUxBNGQvOEtXS3VXdXd1dDYwM3grNHBVYUYKbE9kdTlnVmpma2xTNWRPNFByZDNxbEhiMC9NakI2eUFabUpzbnBIaU5TZW1nd0hRYi8rZk04MEdSOGZYWTFOSgpuMTd2a2Q4KzdVV1ZxeHBVVk5CcTU1RmQ3NExZNVAySFJoM0tyNXlrMkxZM1dqbmV4ZXpSWW95ME11SE9lNVd4CkJFYnlob3JzSGhydTB6elRNbHRkL2g0eWgvUU9HWkxTaUc1OFJ3UFZZRW9RQk1jdThXKzJQdjBRbkhCejRyRzQKdFBHV280WWJkTzREb2VNLytORkI2Y0x1Ky9IQ1J4eHp2Y2tZOS85NXZHZU1LU1hWZEdNWm5BSGVGT1BibnJseQpFRVR5STVLUk5QWjVOUEZMTVpETGN6K1lVRjVrMGd1M1ZUUStIV1gyZ1RiVTdFSENYcWpKRVpONFYyS1hsMzhRCjJZRk42ZGd6WU0rTnlVTENrZTVWV05NQ0F3RUFBUT09Ci0tLS0tRU5EIFBVQkxJQyBLRVktLS0tLQ==", 
+"block_hash": "13a022d61eec403b8966ebe4036522399f76a5ca8fa34609be7748e9", 
+"fee": 0.01021, "reward": 0, "operation": "", "openfield": "msg=This is a message"}
+```
+
 
 
 ## Other info

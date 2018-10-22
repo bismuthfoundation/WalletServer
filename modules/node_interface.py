@@ -15,7 +15,7 @@ import tornado.iostream
 from modules.helpers import *
 
 
-__version_ = '0.0.4'
+__version_ = '0.0.5'
 
 
 # TODO: factorize all commands that are sent "as is" to the local node.
@@ -245,31 +245,75 @@ class NodeInterface():
         return mp
 
     async def user_mpgetjson(self):
-        mp = self.user_mpget()
+        mp = await self.user_mpget()
         return [dict(zip(TX_KEYS, tx)) for tx in mp]
+
+    async def user_txget(self, transaction_id, addresses=[]):
+        # TODO: this is intensive. rate limit or cache, but needs a garbage collector in cache function then.
+        """
+        if self.cached("txget", 10):
+            return self.cache['txget'][1]
+        """
+        if len(transaction_id) == 2:
+            transaction_id, addresses = transaction_id
+        else:
+            transaction_id = transaction_id[0]
+        if len(addresses):
+            recipients = json.dumps(addresses).replace("[","(").replace(']',')')
+            tx = await self.ledger.async_fetchone("SELECT * FROM transactions WHERE recipient IN {} AND signature LIKE ?"
+                                                  .format(recipients),
+                                                  (transaction_id + '%',))
+        else:
+            tx = await self.ledger.async_fetchone("SELECT * FROM transactions WHERE signature like ?",
+                                                  (transaction_id + '%',))
+            # SELECT * FROM transactions WHERE signature like "Zr7jd0cYxshZiTdZVlSH3vrS9e7Ixb+VZ+KDCcKc3+noS+2lVy7qE/qa%";
+        if tx:
+            return tx
+        else:
+            return ["Ko", "No such TxId"]
+
+    async def user_txgetjson(self, transaction_id, addresses=[]):
+        tx = await self.user_txget(transaction_id, addresses)
+        if len(tx) == 2:
+            # error
+            return tx
+        return dict(zip(TX_KEYS, tx))
 
     async def user_annverget(self):
         if self.cached("annverget", 60):
             return self.cache['annverget'][1]
         ann_addr = self.config.genesis_conf
-        result = await self.ledger.async_fetchone("SELECT openfield FROM transactions WHERE address = ? AND openfield LIKE ? ORDER BY block_height DESC limit 1", (ann_addr, "annver=%"))
+        result = await self.ledger.async_fetchone("SELECT openfield FROM transactions "
+                                                  "WHERE address = ? AND openfield LIKE ? "
+                                                  "ORDER BY block_height DESC limit 1",
+                                                  (ann_addr, "annver=%"))
         ann_ver = replace_regex(result[0], "annver=")
         self.set_cache("annverget", ann_ver)
         return ann_ver
 
     # TODO: review this param thing.
-    async def user_addlistlim(self, address, limit2=None):
-        address, limit2 = address
+    async def user_addlistlim(self, address, limit=10, offset=0):
+        if len(address) == 3:
+            address, limit, offset = address
+        elif len(address) == 2:
+            address, limit = address
+        else:
+            address = address[0]
         txs = await self.ledger.async_fetchall("SELECT * FROM transactions WHERE (address = ? OR recipient = ?) "
-                                               "ORDER BY block_height DESC LIMIT ?",
-                                               (address, address, limit2))
+                                               "ORDER BY block_height DESC LIMIT ?, ?",
+                                               (address, address, offset, limit))
         return txs
 
-    async def user_addlistlimjson(self, address, limit2=None):
-        address, limit2 = address
+    async def user_addlistlimjson(self, address, limit=10, offset=0):
+        if len(address) == 3:
+            address, limit, offset = address
+        elif len(address) == 2:
+            address, limit = address
+        else:
+            address = address[0]
         txs = await self.ledger.async_fetchall("SELECT * FROM transactions WHERE (address = ? OR recipient = ?) "
-                                               "ORDER BY block_height DESC LIMIT ?",
-                                               (address, address, limit2))
+                                               "ORDER BY block_height DESC LIMIT ?, ?",
+                                               (address, address, offset, limit))
 
         return [dict(zip(TX_KEYS, tx)) for tx in txs]
 
@@ -285,13 +329,17 @@ class NodeInterface():
         if self.cached("annget", 60):
             return self.cache['annget'][1]
         ann_addr = self.config.genesis_conf
-        result = await self.ledger.async_fetchone("SELECT openfield FROM transactions WHERE address = ? AND openfield LIKE ? ORDER BY block_height DESC limit 1", (ann_addr, "ann=%"))
+        result = await self.ledger.async_fetchone("SELECT openfield FROM transactions "
+                                                  "WHERE address = ? AND openfield LIKE ? "
+                                                  "ORDER BY block_height DESC limit 1",
+                                                  (ann_addr, "ann=%"))
         ann = replace_regex(result[0], "ann=")
         self.set_cache("annget", ann)
         return ann
 
     async def user_balanceget(self, balance_address):
-        base_mempool = await self.mempool.async_fetchall("SELECT amount, openfield, operation FROM transactions WHERE address = ?;",
+        base_mempool = await self.mempool.async_fetchall("SELECT amount, openfield, operation FROM transactions "
+                                                         "WHERE address = ?;",
                                            (balance_address,))
         # include mempool fees
         debit_mempool = 0
