@@ -75,7 +75,7 @@ async def test():
     await blockget(ws)
     await addlistlimjson(ws, "0634b5046b1e2b6a69006280fbe91951d5bb5604c6f469baa2bcd840", 3)
     await addlistlimjson(ws, "0634b5046b1e2b6a69006280fbe91951d5bb5604c6f469baa2bcd840", 3, 2)
-    # await txget(ws, "Zr7jd0cYxshZiTdZVlSH3vrS9e7Ixb+VZ+KDCcKc3+noS+2lVy7qE/qa")
+    await txget(ws, "Zr7jd0cYxshZiTdZVlSH3vrS9e7Ixb+VZ+KDCcKc3+noS+2lVy7qE/qa")
     # txget is way faster if you can provide an optional recipient address or list of addresses
     await txgetjson(ws, "Zr7jd0cYxshZiTdZVlSH3vrS9e7Ixb+VZ+KDCcKc3+noS+2lVy7qE/qa", ["d2f59465568c120a9203f9bd6ba2169b21478f4e7cb713f61eaa1ea0"])
 
