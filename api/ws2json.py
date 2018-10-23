@@ -11,7 +11,9 @@ import json
 import socket
 import logging
 from logging.handlers import RotatingFileHandler
-from websocket import create_connection
+from tornado.ioloop import IOLoop
+# from websocket import create_connection
+from tornado.websocket import websocket_connect
 import urllib3
 
 import connections
@@ -23,7 +25,7 @@ import socks
 # List of wallet servers ip or ip:port to test
 # TODO: load from json with a helper function (separate code from data)
 WALLET_SERVERS = ["wallet.bismuthplatform.de:7150","wallet.bismuth.online:8150","wallet1.bismuth.online:8150","bismuth.live:8150", "testnet2828.bismuthplatform.de:8150"]
-WEBSOCKET_SERVERS = ["wallet.bismuthplatform.de:8155","testnet2828.bismuthplatform.de:8155"]
+WEBSOCKET_SERVERS = ['194.19.235.82:8155', "wallet.bismuthplatform.de:8155","testnet2828.bismuthplatform.de:8155"]
 # Default port to use if none is provided
 DEFAULT_PORT = 8150
 
@@ -55,7 +57,7 @@ def test_legacy_server(an_address, the_network_height=False):
     dict
     """
     global WARN
-    
+
     ip, port = convert_ip_port(an_address)
     app_log.info("Asking {}:{}".format(ip, port))
     #print("Asking {}:{}".format(ip, port))
@@ -95,6 +97,20 @@ def test_legacy_server(an_address, the_network_height=False):
     return {'label': address, 'ip': ip_addr, 'port': port, 'active': active, 'clients': clients,
             'total_slots': max_clients, 'last_active': last_active, 'country': country}
 
+
+async def async_websocket_command(URL, command):
+    """Async command get from websocket"""
+    ws = await websocket_connect(URL)
+    await ws.write_message(command)
+    msg = await ws.read_message()
+    return msg
+
+
+def websocket_command(URL, command):
+    """Sync version of the ws command get. convert async to sync"""
+    return IOLoop.current().run_sync(lambda: async_websocket_command(URL, command))
+
+
 def test_websocket_server(an_address, the_network_height=False):
     """
     Takes an ip:port string, the current network height if known and returns a qualified
@@ -102,18 +118,12 @@ def test_websocket_server(an_address, the_network_height=False):
     dict
     """
     global WARN
-    
-    
+
     URL = "ws://" + an_address + "/web-socket/"
     print(URL)
+    result = websocket_command(URL, '["statusjson"]')
     active = True  # Active by default
     # connect to wallet-server and get statusjson info
-    ws = create_connection(URL)
-    print(ws)
-    app_log.info("Asking {}".format(an_address))
-    #print("Asking {}:{}".format(ip, port))
-    ws.send("statusjson")
-    result = ws.recv()
     print(result)
     if result:
         HEIGHTS[an_address] = result.get("blocks")
@@ -143,21 +153,21 @@ def test_websocket_server(an_address, the_network_height=False):
         clients = -1
         max_clients = -1
         active = False
-        WARN = True            
+        WARN = True
     max_clients = 500
     country = "N/A"
     ip_addr = socket.gethostbyname(an_address)
     return {'label': an_address, 'ip': ip_addr, 'port': port, 'active': active, 'clients': clients,
             'total_slots': max_clients, 'last_active': last_active, 'country': country}
 
-            
+
 def get_network_height():
     """
     Returns the network height from bismuth.online API.
     Returns False if the API was not available.
     """
     global WARN
-    
+
     http = urllib3.PoolManager()
     try:
         chainjson = http.request('GET', 'http://78.28.227.89/api/stats/latestblock')
@@ -178,7 +188,7 @@ def get_network_height():
 if __name__ == "__main__":
 
     WARN = False
-    
+
     app_log = logging.getLogger("wallet_api")
     app_log.setLevel(logging.INFO)
     logfile = os.path.abspath("jsonapi.log")
@@ -187,7 +197,7 @@ if __name__ == "__main__":
     formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
     rotateHandler.setFormatter(formatter)
     app_log.addHandler(rotateHandler)
-    
+
     # Try to get network height from API
     network_height = get_network_height()
 
@@ -198,7 +208,7 @@ if __name__ == "__main__":
     #    test_result_legacy = test_legacy_server(address, network_height)
         # this will also allow to run one test per thread later on, instead of in sequence.
     #    wallets_stats.append(test_result_legacy)
-        
+
     for address in WEBSOCKET_SERVERS:
         test_result_websocket = test_websocket_server(address, network_height)
         websocket_stats.append(test_result_websocket)
@@ -216,7 +226,7 @@ if __name__ == "__main__":
 
     else:
         pass
-    
+
     if WARN:
         print("There are warnings, pls see jsonapi.log for details")
     else:
@@ -224,6 +234,6 @@ if __name__ == "__main__":
 
     with open('legacy.json', 'w') as file:
         json.dump(wallets_stats, file)
-        
+
     with open('websocket.json', 'w') as file:
         json.dump(websocket_stats, file)

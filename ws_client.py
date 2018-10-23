@@ -80,6 +80,7 @@ async def test():
     await txgetjson(ws, "Zr7jd0cYxshZiTdZVlSH3vrS9e7Ixb+VZ+KDCcKc3+noS+2lVy7qE/qa", ["d2f59465568c120a9203f9bd6ba2169b21478f4e7cb713f61eaa1ea0"])
 
 
+
 if __name__ == "__main__":
 
     define("ip", default='127.0.0.1', help="Server IP to connect to, default 127.0.0.1")
@@ -92,4 +93,6 @@ if __name__ == "__main__":
 
     ioloop = IOLoop.current()
     ioloop.run_sync(test)
+
+
 
