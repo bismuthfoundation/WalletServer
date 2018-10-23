@@ -11,17 +11,19 @@ import json
 import socket
 import logging
 from logging.handlers import RotatingFileHandler
-
+from websocket import create_connection
+import urllib3
 
 import connections
 import socks
-import urllib3
+
 
 # global vars come first - if need to be globals, then use UPPERCASE
 
 # List of wallet servers ip or ip:port to test
 # TODO: load from json with a helper function (separate code from data)
-LIGHT_IP = ["wallet.bismuthplatform.de:7150","wallet.bismuth.online:8150","wallet1.bismuth.online:8150","bismuth.live:8150", "testnet2828.bismuthplatform.de:8150"]
+WALLET_SERVERS = ["wallet.bismuthplatform.de:7150","wallet.bismuth.online:8150","wallet1.bismuth.online:8150","bismuth.live:8150", "testnet2828.bismuthplatform.de:8150"]
+WEBSOCKET_SERVERS = ["wallet.bismuthplatform.de:8155","testnet2828.bismuthplatform.de:8155"]
 # Default port to use if none is provided
 DEFAULT_PORT = 8150
 
@@ -93,7 +95,62 @@ def test_legacy_server(an_address, the_network_height=False):
     return {'label': address, 'ip': ip_addr, 'port': port, 'active': active, 'clients': clients,
             'total_slots': max_clients, 'last_active': last_active, 'country': country}
 
+def test_websocket_server(an_address, the_network_height=False):
+    """
+    Takes an ip:port string, the current network height if known and returns a qualified
+    {'label':address,'ip':ip_addr, 'port':local_port, 'active':active, 'clients':clients, 'total_slots':max_clients, 'last_active':last_active, 'country':country}
+    dict
+    """
+    global WARN
+    
+    
+    URL = "ws://" + an_address + "/web-socket/"
+    print(URL)
+    active = True  # Active by default
+    # connect to wallet-server and get statusjson info
+    ws = create_connection(URL)
+    print(ws)
+    app_log.info("Asking {}".format(an_address))
+    #print("Asking {}:{}".format(ip, port))
+    ws.send("statusjson")
+    result = ws.recv()
+    print(result)
+    if result:
+        HEIGHTS[an_address] = result.get("blocks")
+        last_active = result.get("server_timestamp")
+    else:
+        print("Connection closed")
+        app_log.warning("Connection to {} closed".format(an_address))
+        last_active = 0
+        HEIGHTS[address] = 0
+        active = False
+        WARN = True
+    if the_network_height and HEIGHTS[address] < the_network_height - 10:
+        # we have a reference, and we are late.
+        #print("{} is too late: {} vs {}".format(an_address, HEIGHTS[address], the_network_height))
+        app_log.warning("{} is too late: {} vs {}".format(an_address, HEIGHTS[address], the_network_height))
+        WARN = True
+        active = False
+    ws.send("wstatusget")
+    result_ws = ws.recv()
+    ws.close()
+    app_log.info("Connection to {} closed and everything is received".format(an_address))
+    if result_ws:
+        clients = result_ws.get('clients')
+    else:
+        print("Connection closed")
+        app_log.warning("Connection to {} closed".format(an_address))
+        clients = -1
+        max_clients = -1
+        active = False
+        WARN = True            
+    max_clients = 500
+    country = "N/A"
+    ip_addr = socket.gethostbyname(an_address)
+    return {'label': an_address, 'ip': ip_addr, 'port': port, 'active': active, 'clients': clients,
+            'total_slots': max_clients, 'last_active': last_active, 'country': country}
 
+            
 def get_network_height():
     """
     Returns the network height from bismuth.online API.
@@ -136,11 +193,15 @@ if __name__ == "__main__":
 
     # prefer explicit names to abbrev.
     wallets_stats = []
-    for address in LIGHT_IP:
+    #for address in WALLET_SERVERS:
         # prefer several small functions to one long code
-        test_result = test_legacy_server(address, network_height)
+    #    test_result_legacy = test_legacy_server(address, network_height)
         # this will also allow to run one test per thread later on, instead of in sequence.
-        wallets_stats.append(test_result)
+    #    wallets_stats.append(test_result_legacy)
+        
+    for address in WEBSOCKET_SERVERS:
+        test_result_websocket = test_websocket_server(address, network_height)
+        websocket_stats.append(test_result_websocket)
 
     if not network_height:
         # The API was not responding, use fallback method to inactivate late servers
@@ -163,3 +224,6 @@ if __name__ == "__main__":
 
     with open('legacy.json', 'w') as file:
         json.dump(wallets_stats, file)
+        
+    with open('websocket.json', 'w') as file:
+        json.dump(websocket_stats, file)
