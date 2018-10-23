@@ -12,7 +12,6 @@ import socket
 import logging
 from logging.handlers import RotatingFileHandler
 from tornado.ioloop import IOLoop
-# from websocket import create_connection
 from tornado.websocket import websocket_connect
 import urllib3
 
@@ -78,8 +77,9 @@ def test_legacy_server(an_address, the_network_height=False):
             active = False
         connections.send(s, "wstatusget", 10)
         result_ws = connections.receive(s, 10)
+        print(result_ws)
         clients = result_ws.get('clients')
-        max_clients = 500
+        max_clients = result_ws.get('max_clients')
         last_active = result.get("server_timestamp")
     except Exception as e:
         # prefer error values of the same type as expected values
@@ -121,16 +121,16 @@ def test_websocket_server(an_address, the_network_height=False):
 
     URL = "ws://" + an_address + "/web-socket/"
     print(URL)
-    result = websocket_command(URL, '["statusjson"]')
+    resultjson = websocket_command(URL, '["statusjson"]')
+    result = json.loads(resultjson)
     active = True  # Active by default
     # connect to wallet-server and get statusjson info
-    print(result)
     if result:
         HEIGHTS[an_address] = result.get("blocks")
         last_active = result.get("server_timestamp")
     else:
         print("Connection closed")
-        app_log.warning("Connection to {} closed".format(an_address))
+        app_log.warning("Connection to {} closed, statusjson not received".format(an_address))
         last_active = 0
         HEIGHTS[address] = 0
         active = False
@@ -141,23 +141,23 @@ def test_websocket_server(an_address, the_network_height=False):
         app_log.warning("{} is too late: {} vs {}".format(an_address, HEIGHTS[address], the_network_height))
         WARN = True
         active = False
-    ws.send("wstatusget")
-    result_ws = ws.recv()
-    ws.close()
-    app_log.info("Connection to {} closed and everything is received".format(an_address))
-    if result_ws:
-        clients = result_ws.get('clients')
+    result_ws_json = websocket_command(URL,'["wstatusget"]')
+    result_ws = json.loads(result_ws_json)
+    print(result_ws)
+    if not result_ws:
+        app_log.info("Connection to {} closed and everything is received".format(an_address))
+        #clients = result_ws[0].get('clients')
     else:
         print("Connection closed")
-        app_log.warning("Connection to {} closed".format(an_address))
+        app_log.warning("Connection to {} closed, wstatusget not received".format(an_address))
         clients = -1
         max_clients = -1
         active = False
         WARN = True
     max_clients = 500
     country = "N/A"
-    ip_addr = socket.gethostbyname(an_address)
-    return {'label': an_address, 'ip': ip_addr, 'port': port, 'active': active, 'clients': clients,
+    #ip_addr = socket.gethostbyname(an_address)
+    return {'label': an_address, 'ip': an_address, 'port': an_address, 'active': active, 'clients': clients,
             'total_slots': max_clients, 'last_active': last_active, 'country': country}
 
 
@@ -203,11 +203,12 @@ if __name__ == "__main__":
 
     # prefer explicit names to abbrev.
     wallets_stats = []
-    #for address in WALLET_SERVERS:
+    websocket_stats = []
+    for address in WALLET_SERVERS:
         # prefer several small functions to one long code
-    #    test_result_legacy = test_legacy_server(address, network_height)
+        test_result_legacy = test_legacy_server(address, network_height)
         # this will also allow to run one test per thread later on, instead of in sequence.
-    #    wallets_stats.append(test_result_legacy)
+        wallets_stats.append(test_result_legacy)
 
     for address in WEBSOCKET_SERVERS:
         test_result_websocket = test_websocket_server(address, network_height)
