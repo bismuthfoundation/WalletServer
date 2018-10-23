@@ -256,8 +256,6 @@ class NodeInterface():
         """
         if len(transaction_id) == 2:
             transaction_id, addresses = transaction_id
-        else:
-            transaction_id = transaction_id[0]
         if len(addresses):
             recipients = json.dumps(addresses).replace("[","(").replace(']',')')
             tx = await self.ledger.async_fetchone("SELECT * FROM transactions WHERE recipient IN {} AND signature LIKE ?"
@@ -297,8 +295,6 @@ class NodeInterface():
             address, limit, offset = address
         elif len(address) == 2:
             address, limit = address
-        else:
-            address = address[0]
         txs = await self.ledger.async_fetchall("SELECT * FROM transactions WHERE (address = ? OR recipient = ?) "
                                                "ORDER BY block_height DESC LIMIT ?, ?",
                                                (address, address, offset, limit))
@@ -309,8 +305,6 @@ class NodeInterface():
             address, limit, offset = address
         elif len(address) == 2:
             address, limit = address
-        else:
-            address = address[0]
         txs = await self.ledger.async_fetchall("SELECT * FROM transactions WHERE (address = ? OR recipient = ?) "
                                                "ORDER BY block_height DESC LIMIT ?, ?",
                                                (address, address, offset, limit))
