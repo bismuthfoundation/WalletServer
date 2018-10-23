@@ -12,6 +12,8 @@ pip3 install -r requirements.txt
 
 # TODO: send copies of txs directly to pool nodes? Ok if wallet servers are whitelisted.
 
+# TODO: route with a key to show last logs
+
 
 import logging
 import json
