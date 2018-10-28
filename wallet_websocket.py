@@ -14,6 +14,7 @@ pip3 install -r requirements.txt
 
 # TODO: route with a key to show last logs
 
+# TODO: wstatusget , total slots and connected clients.
 
 import logging
 import json

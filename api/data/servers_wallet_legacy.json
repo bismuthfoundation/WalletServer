@@ -1,0 +1,9 @@
+[
+  {"label": "wallet.bismuthplatform.de", "ip": "46.101.186.35", "port": 8150, "country": "N/A"},
+  {"label": "wallet.bismuth.online", "ip": "194.19.235.82", "port": 8150, "country": "N/A"},
+  {"label": "wallet1.bismuth.online", "ip": "78.28.227.89", "port": 8150, "country": "N/A"},
+  {"label": "bismuth.live:8150", "ip": "31.31.75.71", "port": 8150, "country": "N/A"},
+  {"label": "bo_ws1", "ip": "78.28.227.89", "port": 10001, "country": "N/A"},
+  {"label": "bo_ws2", "ip": "78.28.227.89", "port": 10002, "country": "N/A"},
+  {"label": "bo_ws3", "ip": "78.28.227.89", "port": 10003, "country": "N/A"}
+]

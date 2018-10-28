@@ -6,35 +6,39 @@ Tests a list of official wallet servers, and produces the json output needed by 
 To be run by a cron everty 5 minutes.
 """
 
-import os
 import json
-import socket
 import logging
+import os
+import sys
 from logging.handlers import RotatingFileHandler
-from tornado.ioloop import IOLoop
-from tornado.websocket import websocket_connect
-import urllib3
 
 import connections
 import socks
+import urllib3
+from tornado.ioloop import IOLoop
+from tornado.websocket import websocket_connect
 
+__version__ = '0.0.2'
 
 # global vars come first - if need to be globals, then use UPPERCASE
 
 # List of wallet servers ip or ip:port to test
 # TODO: load from json with a helper function (separate code from data)
-WALLET_SERVERS = ["wallet.bismuthplatform.de:7150","wallet.bismuth.online:8150","wallet1.bismuth.online:8150","bismuth.live:8150", "testnet2828.bismuthplatform.de:8150"]
+WALLET_SERVERS = []
 WEBSOCKET_SERVERS = ['194.19.235.82:8155', "wallet.bismuthplatform.de:8155","testnet2828.bismuthplatform.de:8155"]
+# TODO
+WEBSOCKET_SERVERS = []
 # Default port to use if none is provided
 DEFAULT_PORT = 8150
 
-# a dict to lookup height of a given ip:port
-HEIGHTS = {}
+DO_LEGACY = True
+DO_WEBSOCKET = False
 
 # variable to have zero terminal output, but one notice if something with level warning happened or not
 global WARN
 
 # Then functions
+
 
 def convert_ip_port(ip, some_port=DEFAULT_PORT):
     """
@@ -49,30 +53,29 @@ def convert_ip_port(ip, some_port=DEFAULT_PORT):
     return ip, int(some_port)
 
 
-def test_legacy_server(an_address, the_network_height=False):
+def test_legacy_server(a_server_dict, the_network_height=False):
     """
-    Takes an ip:port string, the current network height if known and returns a qualified
+    Takes a server dict, the current network height if known and updates the dict with merged info
     {'label':address,'ip':ip_addr, 'port':local_port, 'active':active, 'clients':clients, 'total_slots':max_clients, 'last_active':last_active, 'country':country}
-    dict
     """
     global WARN
 
-    ip, port = convert_ip_port(an_address)
-    app_log.info("Asking {}:{}".format(ip, port))
+    label = a_server_dict['label']
+    app_log.info("Asking {}:{}".format(a_server_dict['ip'], a_server_dict['port']))
     #print("Asking {}:{}".format(ip, port))
     active = True  # Active by default
     try:
         s = socks.socksocket()
         s.settimeout(3)
         # connect to wallet-server and get statusjson info
-        s.connect((ip, port))
+        s.connect((a_server_dict['ip'], a_server_dict['port']))
         connections.send(s, "statusjson", 10)
         result = connections.receive(s, 10)
-        HEIGHTS[address] = result.get("blocks")
-        if the_network_height and HEIGHTS[address] < the_network_height - 10:
+        a_server_dict['height'] = result["blocks"]
+        if the_network_height and a_server_dict['height'] < the_network_height - 10:
             # we have a reference, and we are late.
             #print("{} is too late: {} vs {}".format(an_address, HEIGHTS[address], the_network_height))
-            app_log.warning("{} is too late: {} vs {}".format(an_address, HEIGHTS[address], the_network_height))
+            app_log.warning("{} is too late: {} vs {}".format(label, a_server_dict['height'], the_network_height))
             WARN = True
             active = False
         connections.send(s, "wstatusget", 10)
@@ -87,15 +90,15 @@ def test_legacy_server(an_address, the_network_height=False):
         clients = -1
         last_active = 0
         max_clients = -1
-        HEIGHTS[address] = 0
+        a_server_dict['height'] = 0
         active = False
-        app_log.warning("Exception {} querying {}".format(e, an_address))
+        app_log.warning("Exception {} querying {}".format(e, label))
         WARN = True
 
-    country = "N/A"
-    ip_addr = socket.gethostbyname(ip)
-    return {'label': address, 'ip': ip_addr, 'port': port, 'active': active, 'clients': clients,
-            'total_slots': max_clients, 'last_active': last_active, 'country': country}
+    a_server_dict['active'] = active
+    a_server_dict['clients'] = clients
+    a_server_dict['total_slots'] = max_clients
+    a_server_dict['last_active'] = last_active
 
 
 async def async_websocket_command(URL, command):
@@ -111,54 +114,59 @@ def websocket_command(URL, command):
     return IOLoop.current().run_sync(lambda: async_websocket_command(URL, command))
 
 
-def test_websocket_server(an_address, the_network_height=False):
+def test_websocket_server(a_server_dict, the_network_height=False):
     """
-    Takes an ip:port string, the current network height if known and returns a qualified
+    Takes a server dict, the current network height if known and updates the dict with merged info
     {'label':address,'ip':ip_addr, 'port':local_port, 'active':active, 'clients':clients, 'total_slots':max_clients, 'last_active':last_active, 'country':country}
-    dict
     """
     global WARN
 
-    URL = "ws://" + an_address + "/web-socket/"
-    print(URL)
+    label = a_server_dict['label']
+    URL = "ws://{}:{}/web-socket/".format(a_server_dict['ip'], a_server_dict['port'])
+    print("Testing {}".format(URL))
     resultjson = websocket_command(URL, '["statusjson"]')
     result = json.loads(resultjson)
     active = True  # Active by default
     # connect to wallet-server and get statusjson info
     if result:
-        HEIGHTS[an_address] = result.get("blocks")
-        last_active = result.get("server_timestamp")
+        a_server_dict['height'] = result["blocks"]
+        last_active = result["server_timestamp"]
     else:
         print("Connection closed")
-        app_log.warning("Connection to {} closed, statusjson not received".format(an_address))
+        app_log.warning("Connection to {} closed, statusjson not received".format(label))
         last_active = 0
-        HEIGHTS[address] = 0
+        a_server_dict['height'] = 0
         active = False
         WARN = True
-    if the_network_height and HEIGHTS[address] < the_network_height - 10:
+    if the_network_height and a_server_dict['height'] < the_network_height - 10:
         # we have a reference, and we are late.
-        #print("{} is too late: {} vs {}".format(an_address, HEIGHTS[address], the_network_height))
-        app_log.warning("{} is too late: {} vs {}".format(an_address, HEIGHTS[address], the_network_height))
+        app_log.warning("{} is too late: {} vs {}".format(label, a_server_dict['height'], the_network_height))
         WARN = True
         active = False
+    """
     result_ws_json = websocket_command(URL,'["wstatusget"]')
     result_ws = json.loads(result_ws_json)
     print(result_ws)
-    if not result_ws:
-        app_log.info("Connection to {} closed and everything is received".format(an_address))
+    if result_ws:
+        app_log.info("Connection to {} closed and everything is received".format(label))
         #clients = result_ws[0].get('clients')
     else:
         print("Connection closed")
-        app_log.warning("Connection to {} closed, wstatusget not received".format(an_address))
+        app_log.warning("Connection to {} closed, wstatusget not received".format(label))
         clients = -1
         max_clients = -1
         active = False
         WARN = True
+    """
+    # TODO
     max_clients = 500
+    clients = 250
     country = "N/A"
-    #ip_addr = socket.gethostbyname(an_address)
-    return {'label': an_address, 'ip': an_address, 'port': an_address, 'active': active, 'clients': clients,
-            'total_slots': max_clients, 'last_active': last_active, 'country': country}
+    # Fill in extra info
+    a_server_dict['active'] = active
+    a_server_dict['clients'] = clients
+    a_server_dict['total_slots'] = max_clients
+    a_server_dict['last_active'] = last_active
 
 
 def get_network_height():
@@ -170,15 +178,13 @@ def get_network_height():
 
     http = urllib3.PoolManager()
     try:
-        chainjson = http.request('GET', 'http://78.28.227.89/api/stats/latestblock')
+        chainjson = http.request('GET', 'http://bismuth.online/api/stats/latestblock')
         chain = json.loads(chainjson.data.decode('utf-8'))
         height = int(chain["height"])
-        #print("Bismuth.online API says network height is {}".format(height))
         app_log.info("Bismuth.online API says network height is {}".format(height))
         return height
 
     except Exception as e:
-        #print("bismuth.online API not reachable, using back method for testing active")
         app_log.warning("bismuth.online API not reachable, using back method for testing active")
         WARN = True
         return False
@@ -198,43 +204,52 @@ if __name__ == "__main__":
     rotateHandler.setFormatter(formatter)
     app_log.addHandler(rotateHandler)
 
-    # Try to get network height from API
+    # This part is what goes on console.
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(asctime)s %(funcName)s(%(lineno)d) %(message)s')
+    ch.setFormatter(formatter)
+    app_log.addHandler(ch)
+
+
+# Try to get network height from API
     network_height = get_network_height()
 
-    # prefer explicit names to abbrev.
-    wallets_stats = []
-    websocket_stats = []
-    for address in WALLET_SERVERS:
-        # prefer several small functions to one long code
-        test_result_legacy = test_legacy_server(address, network_height)
-        # this will also allow to run one test per thread later on, instead of in sequence.
-        wallets_stats.append(test_result_legacy)
+    if DO_LEGACY:
+        with open('../data/servers_wallet_legacy.json', 'r') as f:
+            WALLET_SERVERS = json.load(f)
 
-    for address in WEBSOCKET_SERVERS:
-        test_result_websocket = test_websocket_server(address, network_height)
-        websocket_stats.append(test_result_websocket)
+        for server in WALLET_SERVERS:
+            # prefer several small functions to one long code
+            test_legacy_server(server, network_height)
+            # this will also allow to run one test per thread later on, instead of in sequence
+        if not network_height:
+            # The API was not responding, use fallback method to inactivate late servers
+            max_height = max([server['height'] for server in WALLET_SERVERS])
+            for server in WALLET_SERVERS:
+                if server['height'] < max_height - 10:
+                    server['active'] = False
 
-    if not network_height:
-        # The API was not responding, use fallback method to inactivate late servers
-        # This could go into a function as well
-        max_height = max(HEIGHTS.values())
-        for key in HEIGHTS:
-            listindex = [i for i,x in enumerate(HEIGHTS) if x == key]
-            if HEIGHTS.get(key) < (max_height - 10):
-                wallets_stats[listindex[0]]['active'] = False
-            else:
-                wallets_stats[listindex[0]]['active'] = True
+    if DO_WEBSOCKET:
+        for server in WEBSOCKET_SERVERS:
+            test_websocket_server(server, network_height)
+        if not network_height:
+            # The API was not responding, use fallback method to inactivate late servers
+            max_height = max([server['height'] for server in WEBSOCKET_SERVERS])
+            for server in WEBSOCKET_SERVERS:
+                if server['height'] < max_height - 10:
+                    server['active'] = False
 
-    else:
-        pass
 
     if WARN:
         print("There are warnings, pls see jsonapi.log for details")
     else:
         print("no Warnings occured, to see Infos, open jsonapi.log")
 
-    with open('legacy.json', 'w') as file:
-        json.dump(wallets_stats, file)
+    if DO_LEGACY:
+        with open('../servers/wallet/legacy.json', 'w') as file:
+            json.dump(WALLET_SERVERS, file)
 
-    with open('websocket.json', 'w') as file:
-        json.dump(websocket_stats, file)
+    if DO_WEBSOCKET:
+        with open('../servers/wallet/websocket.json', 'w') as file:
+            json.dump(WEBSOCKET_SERVERS, file)
