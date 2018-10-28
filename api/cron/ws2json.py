@@ -66,24 +66,24 @@ def test_legacy_server(a_server_dict, the_network_height=False):
     active = True  # Active by default
     try:
         s = socks.socksocket()
-        s.settimeout(3)
+        s.settimeout(30)
         # connect to wallet-server and get statusjson info
-        s.connect((a_server_dict['ip'], a_server_dict['port']))
-        connections.send(s, "statusjson", 10)
-        result = connections.receive(s, 10)
-        a_server_dict['height'] = result["blocks"]
+        s.connect((a_server_dict['ip'], int(a_server_dict['port'])))
+        connections.send(s, "statusget")
+        result = connections.receive(s)
+        a_server_dict['height'] = result[5]
         if the_network_height and a_server_dict['height'] < the_network_height - 10:
             # we have a reference, and we are late.
             #print("{} is too late: {} vs {}".format(an_address, HEIGHTS[address], the_network_height))
             app_log.warning("{} is too late: {} vs {}".format(label, a_server_dict['height'], the_network_height))
             WARN = True
             active = False
-        connections.send(s, "wstatusget", 10)
-        result_ws = connections.receive(s, 10)
+        connections.send(s, "wstatusget")
+        result_ws = connections.receive(s)
         print(result_ws)
-        clients = result_ws.get('clients')
-        max_clients = result_ws.get('max_clients')
-        last_active = result.get("server_timestamp")
+        clients = result_ws['clients']
+        max_clients = result_ws.get('max_clients', 100)
+        last_active = result_ws.get("server_timestamp", 0)
     except Exception as e:
         # prefer error values of the same type as expected values
         #print("Exception {} querying {}".format(e, an_address))
@@ -94,6 +94,9 @@ def test_legacy_server(a_server_dict, the_network_height=False):
         active = False
         app_log.warning("Exception {} querying {}".format(e, label))
         WARN = True
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+        app_log.error('detail {} {} {}'.format(exc_type, fname, exc_tb.tb_lineno))
 
     a_server_dict['active'] = active
     a_server_dict['clients'] = clients
