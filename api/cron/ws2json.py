@@ -82,8 +82,9 @@ def test_legacy_server(a_server_dict, the_network_height=False):
         result_ws = connections.receive(s)
         print(result_ws)
         clients = result_ws['clients']
-        max_clients = result_ws.get('max_clients', 100)
+        max_clients = result_ws.get('max_clients', 50)
         last_active = result_ws.get("server_timestamp", 0)
+        a_server_dict['version'] = result_ws['version']
     except Exception as e:
         # prefer error values of the same type as expected values
         #print("Exception {} querying {}".format(e, an_address))
@@ -91,6 +92,7 @@ def test_legacy_server(a_server_dict, the_network_height=False):
         last_active = 0
         max_clients = -1
         a_server_dict['height'] = 0
+        a_server_dict['version'] = '0.0.0'
         active = False
         app_log.warning("Exception {} querying {}".format(e, label))
         WARN = True
