@@ -15,7 +15,7 @@ import tornado.iostream
 from modules.helpers import *
 
 
-__version_ = '0.0.5'
+__version_ = '0.0.6'
 
 
 # TODO: factorize all commands that are sent "as is" to the local node.
@@ -325,7 +325,8 @@ class NodeInterface():
         return ann_ver
 
     # TODO: review this param thing.
-    async def user_addlistlim(self, address, limit=10, offset=0):
+    async def user_addlistlim(self, address, limit=10):
+        offset = 0
         if len(address) == 3:
             address, limit, offset = address
         elif len(address) == 2:
@@ -349,17 +350,38 @@ class NodeInterface():
                     stream.close()
         return txs
 
-    async def user_addlistlimjson(self, address, limit=10, offset=0):
+    async def user_addlistlimfrom(self, address, limit=10, offset=0):
+
         if len(address) == 3:
             address, limit, offset = address
         elif len(address) == 2:
             address, limit = address
-        txs = await self.ledger.async_fetchall("SELECT * FROM transactions WHERE (address = ? OR recipient = ?) "
-                                               "ORDER BY block_height DESC LIMIT ?, ?",
-                                               (address, address, offset, limit))
+        txs = []
+        if self.config.direct_ledger:
+            txs = await self.ledger.async_fetchall("SELECT * FROM transactions WHERE (address = ? OR recipient = ?) "
+                                                   "ORDER BY block_height DESC LIMIT ?, ?",
+                                                   (address, address, offset, limit))
+        else:
+            stream = await self._node_stream()
+            try:
+                await self._send("addlistlim", stream)
+                await self._send(address, stream)
+                await self._send(limit, stream)
+                txs = await self._receive(stream)
+            except KeyboardInterrupt:
+                stream.close()
+            finally:
+                if stream:
+                    stream.close()
+        return txs
 
+    async def user_addlistlimjson(self, address, limit=10):
+        txs = await self.user_addlistlim(address, limit)
         return [dict(zip(TX_KEYS, tx)) for tx in txs]
 
+    async def user_addlistlimfromjson(self, address, limit=10, offset=0):
+        txs = await self.user_addlistlimfrom(address, limit, offset)
+        return [dict(zip(TX_KEYS, tx)) for tx in txs]
 
     async def user_addlist(self, address):
         if self.config.direct_ledger:

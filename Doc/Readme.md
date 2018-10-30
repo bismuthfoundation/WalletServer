@@ -26,7 +26,31 @@ Use with care.
 Each transaction is  
 `["block_height", "timestamp", "address", "recipient", "amount", "signature", "public_key", "block_hash", "fee", "reward", "operation", "openfield"]`
 
-### addlistlim (address, limit=10, offset=0)
+### addlistlim (address, limit=10)
+
+Returns a list of the latest `limit` transactions from `address`,  most recent one first.
+
+Each transaction is  
+`["block_height", "timestamp", "address", "recipient", "amount", "signature", "public_key", "block_hash", "fee", "reward", "operation", "openfield"]`
+
+Ex:
+```
+[865152, 1539630345.77, "da8a39cc9d880cd55c324afc2f9596c64fac05b8d41b3c9b6c481b4e", 
+"d2f59465568c120a9203f9bd6ba2169b21478f4e7cb713f61eaa1ea0", 0, "YUVtPJfHGQYTIEjo3V2aXPwraHmYUOppYNEHlfD3dJ/NH8vhMdNrIuA/KGR0Cka0pV/5KwmbUqyYX5ezFW7kMk4zAjOu6kDC4Glh9PBMRW0HYYrnnD8e+VyXH3QeU8wC+mMZFGTvZnwmp+NCUgCZegjLlCfxJ14HrK5ZNJ83xNC7dMH2CX8SbP7mZGaaBOWnVzNYjj1SvD3JcgK+WsGYMaa6MkMRFkjMCUY0S11O7B9qfxAWSNmjfPFlsq3iQMxRBZD7Uw30NRquZ2rVnbo0bsTauC0rDnn4wiM6EMZqYpKrWf907BSzfTe2N2Oi2nV3X4Yw6Rft7fxG5PsoHAyAfKAWTFVaCqXtNKSylGgVEWaxMIsXa5/bIHWELfuVwbwFQsp7ESN/5XxybqXh8XGIAzeJOwDfv+qquCdBTfQXtwOc8hXhoCpDMI4DjSJqo/q/6Ve1TvvP8Eg1VzkiIWrJAbP5PljyhEd/GMes1kN7hl20cty4vPeBlRFP85vz4SwfvRAKAUlwz9K+JkHZaBibYfazcEHcewa7PSMtMmsdtkMl0bdz56HOpyMJYXK6T3rYZVO7wlXScCV6rebmEKsg0yfjDSRPKYaztGL/8iNonNis04bdIOL4UzYgUYHfJt/wzUzH5tZ2ykIvuwVCfbhT2S2QDKcmDeFvPhaHS4IZJdg=", 
+"LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQ0lqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FnOEFNSUlDQ2dLQ0FnRUFwbjBoM3BiZkZMcUJzdy92ZGw3ZAp5Z0xrNWFpUW1tZlhaNzRQTE56eVQwb3FTNWJORUZhSXIzdVNwUjk4WG84Rm5lOGhjbkxvVFB0Y1lhWndUWDJECjRjakxhYm9HaWxkY1l4Vkt3ajNRQlh....0WFdXLzliYUw3bGUvVXhwbTFXaEpQRDUKM1RmemJBSy8wNE9MT3dxc2RjdFBTbUp1cHRiYVVwTTNIeEtGbFBQemFIZ2NQRW55VC9HRHJwUUJxdXFJKzVkTApabzBXZ2ZXMEtzRTFiVXdWNTJUOEhnblBDck9EbnczeUhFVVdyTjNMZUszZjFkNnQvM200Ujc4TmJUQzJlT0lsCnpvNjlvRTFyMzJnWUp6dndwcXJwNGYwQ0F3RUFBUT09Ci0tLS0tRU5EIFBVQkxJQyBLRVktLS0tLQ==", 
+"325e8f26b6ed9b8d0601c02fcefbf2871e4211e15f7a0459eb208698", 0.01006, 0, "token:transfer", "egg:50"]
+```
+
+
+### addlistlimjson (address, limit=10, offset=0)
+
+json version of `addlistlim`.  
+Returns a list of the latest `limit` transactions from `address` , last one first.  
+Each transaction is a dict, with the keys being  
+`["block_height", "timestamp", "address", "recipient", "amount", "signature", "public_key", "block_hash", "fee", "reward", "operation", "openfield"]`
+
+
+### addlistlimfrom (address, limit=10, offset=0)
 
 Returns a list of the latest `limit` transactions from `address` , starting at optional offset `offset`,  
 most recent one first.
@@ -42,7 +66,7 @@ Ex:
 "325e8f26b6ed9b8d0601c02fcefbf2871e4211e15f7a0459eb208698", 0.01006, 0, "token:transfer", "egg:50"]
 ```
 
-### addlistlimjson (address, limit=10, offset=0)
+### addlistlimfromjson (address, limit=10, offset=0)
 
 json version of `addlistlim`.  
 Returns a list of the latest `limit` transactions from `address` , last one first.  
