@@ -76,7 +76,8 @@ class SqliteBase():
 
     async def schema(self):
         """Connects to the db by asking sql"""
-        return await self.async_execute("SELECT sql FROM sqlite_master")
+        await self.async_execute("SELECT sql FROM sqlite_master")
+        await self.async_commit()
 
     async def async_execute(self, sql, param=None, commit=False):
         """
