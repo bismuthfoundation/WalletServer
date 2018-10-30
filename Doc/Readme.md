@@ -4,6 +4,8 @@ What is that?
 
 WIP
 
+> From Websocket v0.0.4, addlistlim (no offset) and addlistlimfrom (offset) are 2 different commands.
+
 ## Two kind of servers, same backend
 
 - wallet_server
