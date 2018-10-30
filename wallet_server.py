@@ -33,7 +33,7 @@ from modules.sqlitebase import SqliteBase
 from modules.node_interface import NodeInterface
 
 
-__version__ = '0.1.2'
+__version__ = '0.1.3'
 
 
 # Server
@@ -185,7 +185,6 @@ class WalletServer(TCPServer):
                 app_log.error("Error background {}".format(str(e)))
 
 
-
 async def getrights(ip):
     global app_log
     global CONFIG
@@ -214,11 +213,24 @@ def start_server(port):
     server.node_interface = node_interface
     # attach mempool db
     #server.listen(port)
+    io_loop = IOLoop.instance()
+    try:
+        # Force a db connection attempt
+        ret = io_loop.run_sync(ledger.schema, 30)
+    except Exception as e:
+        app_log.info("Can't connect to ledger: {}".format(e))
+        return
+    try:
+        # Force a db connection attempt
+        ret = io_loop.run_sync(mempool.schema, 30)
+    except Exception as e:
+        app_log.info("Can't connect to mempool: {}".format(e))
+        return
+
     server.bind(port)
     server.start(1)  # Force one process only
     if options.verbose:
         app_log.info("Starting server on tcp://localhost:{}".format(port))
-    io_loop = IOLoop.instance()
     io_loop.spawn_callback(server.background)
     try:
         io_loop.start()

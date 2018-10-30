@@ -74,6 +74,10 @@ class SqliteBase():
             cursor = None
         return cursor
 
+    async def schema(self):
+        """Connects to the db by asking sql"""
+        return await self.async_execute("SELECT sql FROM sqlite_master")
+
     async def async_execute(self, sql, param=None, commit=False):
         """
         Safely execute the request
