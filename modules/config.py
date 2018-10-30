@@ -1,7 +1,7 @@
 
 import os.path as path
 
-__version__ = '0.0.2'
+__version__ = '0.0.3'
 
 
 class Get:
@@ -19,7 +19,8 @@ class Get:
         "debug_level":["str"],
         "allowed":["str"],
         "banlist":["list"],
-        "whitelist":["list"]
+        "whitelist":["list"],
+        "direct_ledger": ["bool"]
     }
 
     # Optional default values so we don't bug if they are not in the config.
@@ -32,7 +33,9 @@ class Get:
         "db_path": "../Bismuth/static",
         "debug": False,
         "testnet": False,
-        "max_clients": 500
+        "max_clients": 500,
+        "direct_ledger": True
+
     }
 
     def load_file(self,filename):

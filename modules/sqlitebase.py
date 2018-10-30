@@ -7,6 +7,7 @@ beware : module now shared by the wallet server.
 
 import sqlite3
 import aiosqlite3
+# import aiosqlite as aiosqlite3
 import time
 import asyncio
 
@@ -102,10 +103,9 @@ class SqliteBase():
         max_tries = 10
         while max_tries:
             try:
-                print("temp await cursor")
-
+                # print("temp await cursor")
                 cursor = await self.async_db.cursor()
-                print("temp await execute")
+                # print("temp await execute")
                 if param:
                     await cursor.execute(sql, param)
                 else:
@@ -159,11 +159,11 @@ class SqliteBase():
         :param param:
         :return:
         """
-        print("temp fetch one 1")
+        # print("temp fetch one 1")
         cursor = await self.async_execute(sql, param)
-        print("temp cursor fetch one")
+        # print("temp cursor fetch one")
         data = await cursor.fetchone()
-        print("temp cursor close")
+        # print("temp cursor close")
         await cursor.close()
         if not data:
             return None

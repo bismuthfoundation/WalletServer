@@ -111,6 +111,7 @@ class NodeInterface():
         stream = None
         try:
             # too old, ask the node
+            # TODO: factorize all the node forwarding methods
             stream = await self._node_stream()
             try:
                 await self._send("statusget", stream)
@@ -232,7 +233,18 @@ class NodeInterface():
     async def user_blocklast(self):
         if self.cached("blocklast"):
             return self.cache['blocklast'][1]
-        last = await self.ledger.async_fetchone("SELECT * FROM transactions WHERE reward > 0 ORDER BY block_height DESC LIMIT 1")
+        if self.config.direct_ledger:
+            last = await self.ledger.async_fetchone("SELECT * FROM transactions WHERE reward > 0 ORDER BY block_height DESC LIMIT 1")
+        else:
+            stream = await self._node_stream()
+            try:
+                await self._send("blocklast", stream)
+                last = await self._receive(stream)
+            except KeyboardInterrupt:
+                stream.close()
+            finally:
+                if stream:
+                    stream.close()
         self.set_cache("blocklast", last)
         return last
 
@@ -256,15 +268,26 @@ class NodeInterface():
         """
         if len(transaction_id) == 2:
             transaction_id, addresses = transaction_id
-        if len(addresses):
-            recipients = json.dumps(addresses).replace("[","(").replace(']',')')
-            tx = await self.ledger.async_fetchone("SELECT * FROM transactions WHERE recipient IN {} AND signature LIKE ?"
-                                                  .format(recipients),
-                                                  (transaction_id + '%',))
+        if self.config.direct_ledger:
+            if len(addresses):
+                recipients = json.dumps(addresses).replace("[","(").replace(']',')')
+                tx = await self.ledger.async_fetchone("SELECT * FROM transactions WHERE recipient IN {} AND signature LIKE ?"
+                                                      .format(recipients),
+                                                      (transaction_id + '%',))
+            else:
+                tx = await self.ledger.async_fetchone("SELECT * FROM transactions WHERE signature like ?",
+                                                      (transaction_id + '%',))
         else:
-            tx = await self.ledger.async_fetchone("SELECT * FROM transactions WHERE signature like ?",
-                                                  (transaction_id + '%',))
-            # SELECT * FROM transactions WHERE signature like "Zr7jd0cYxshZiTdZVlSH3vrS9e7Ixb+VZ+KDCcKc3+noS+2lVy7qE/qa%";
+            stream = await self._node_stream()
+            try:
+                await self._send("txget", stream)
+                await self._send(transaction_id, stream)
+                tx = await self._receive(stream)
+            except KeyboardInterrupt:
+                stream.close()
+            finally:
+                if stream:
+                    stream.close()
         if tx:
             return tx
         else:
@@ -280,12 +303,24 @@ class NodeInterface():
     async def user_annverget(self):
         if self.cached("annverget", 60):
             return self.cache['annverget'][1]
-        ann_addr = self.config.genesis_conf
-        result = await self.ledger.async_fetchone("SELECT openfield FROM transactions "
-                                                  "WHERE address = ? AND openfield LIKE ? "
-                                                  "ORDER BY block_height DESC limit 1",
-                                                  (ann_addr, "annver=%"))
-        ann_ver = replace_regex(result[0], "annver=")
+        ann_ver = ''
+        if self.config.direct_ledger:
+            ann_addr = self.config.genesis_conf
+            result = await self.ledger.async_fetchone("SELECT openfield FROM transactions "
+                                                      "WHERE address = ? AND openfield LIKE ? "
+                                                      "ORDER BY block_height DESC limit 1",
+                                                      (ann_addr, "annver=%"))
+            ann_ver = replace_regex(result[0], "annver=")
+        else:
+            stream = await self._node_stream()
+            try:
+                await self._send("annverget", stream)
+                ann_ver = await self._receive(stream)
+            except KeyboardInterrupt:
+                stream.close()
+            finally:
+                if stream:
+                    stream.close()
         self.set_cache("annverget", ann_ver)
         return ann_ver
 
@@ -295,9 +330,23 @@ class NodeInterface():
             address, limit, offset = address
         elif len(address) == 2:
             address, limit = address
-        txs = await self.ledger.async_fetchall("SELECT * FROM transactions WHERE (address = ? OR recipient = ?) "
-                                               "ORDER BY block_height DESC LIMIT ?, ?",
-                                               (address, address, offset, limit))
+        txs = []
+        if self.config.direct_ledger:
+            txs = await self.ledger.async_fetchall("SELECT * FROM transactions WHERE (address = ? OR recipient = ?) "
+                                                   "ORDER BY block_height DESC LIMIT ?, ?",
+                                                   (address, address, offset, limit))
+        else:
+            stream = await self._node_stream()
+            try:
+                await self._send("addlistlim", stream)
+                await self._send(address, stream)
+                await self._send(limit, stream)
+                txs = await self._receive(stream)
+            except KeyboardInterrupt:
+                stream.close()
+            finally:
+                if stream:
+                    stream.close()
         return txs
 
     async def user_addlistlimjson(self, address, limit=10, offset=0):
@@ -313,9 +362,21 @@ class NodeInterface():
 
 
     async def user_addlist(self, address):
-        txs = await self.ledger.async_fetchall("SELECT * FROM transactions WHERE (address = ? OR recipient = ?) "
-                                               "ORDER BY block_height DESC",
-                                               (address, address))
+        if self.config.direct_ledger:
+            txs = await self.ledger.async_fetchall("SELECT * FROM transactions WHERE (address = ? OR recipient = ?) "
+                                                   "ORDER BY block_height DESC",
+                                                   (address, address))
+        else:
+            stream = await self._node_stream()
+            try:
+                await self._send("addlist", stream)
+                await self._send(address, stream)
+                txs = await self._receive(stream)
+            except KeyboardInterrupt:
+                stream.close()
+            finally:
+                if stream:
+                    stream.close()
         return txs
 
     async def user_annget(self):
@@ -323,64 +384,89 @@ class NodeInterface():
         if self.cached("annget", 60):
             return self.cache['annget'][1]
         ann_addr = self.config.genesis_conf
-        result = await self.ledger.async_fetchone("SELECT openfield FROM transactions "
-                                                  "WHERE address = ? AND openfield LIKE ? "
-                                                  "ORDER BY block_height DESC limit 1",
-                                                  (ann_addr, "ann=%"))
-        ann = replace_regex(result[0], "ann=")
+        ann = ''
+        if self.config.direct_ledger:
+            result = await self.ledger.async_fetchone("SELECT openfield FROM transactions "
+                                                      "WHERE address = ? AND openfield LIKE ? "
+                                                      "ORDER BY block_height DESC limit 1",
+                                                      (ann_addr, "ann=%"))
+            ann = replace_regex(result[0], "ann=")
+        else:
+            stream = await self._node_stream()
+            try:
+                await self._send("annget", stream)
+                ann = await self._receive(stream)
+            except KeyboardInterrupt:
+                stream.close()
+            finally:
+                if stream:
+                    stream.close()
         self.set_cache("annget", ann)
         return ann
 
     async def user_balanceget(self, balance_address):
-        base_mempool = await self.mempool.async_fetchall("SELECT amount, openfield, operation FROM transactions "
-                                                         "WHERE address = ?;",
-                                           (balance_address,))
-        # include mempool fees
-        debit_mempool = 0
-        if base_mempool:
-            for x in base_mempool:
-                debit_tx = Decimal(x[0])
-                fee = fee_calculate(x[1], x[2], 700001)
-                debit_mempool = quantize_eight(debit_mempool + debit_tx + fee)
-        else:
+        if self.config.direct_ledger:
+            base_mempool = await self.mempool.async_fetchall("SELECT amount, openfield, operation FROM transactions "
+                                                             "WHERE address = ?;",
+                                               (balance_address,))
+            # include mempool fees
             debit_mempool = 0
-        # include mempool fees
-        credit_ledger = Decimal("0")
-        for entry in await self.ledger.async_execute("SELECT amount FROM transactions WHERE recipient = ?;", (balance_address,)):
-            try:
-                credit_ledger = quantize_eight(credit_ledger) + quantize_eight(entry[0])
-                credit_ledger = 0 if credit_ledger is None else credit_ledger
-            except:
-                credit_ledger = 0
+            if base_mempool:
+                for x in base_mempool:
+                    debit_tx = Decimal(x[0])
+                    fee = fee_calculate(x[1], x[2], 700001)
+                    debit_mempool = quantize_eight(debit_mempool + debit_tx + fee)
+            else:
+                debit_mempool = 0
+            # include mempool fees
+            credit_ledger = Decimal("0")
+            for entry in await self.ledger.async_execute("SELECT amount FROM transactions WHERE recipient = ?;", (balance_address,)):
+                try:
+                    credit_ledger = quantize_eight(credit_ledger) + quantize_eight(entry[0])
+                    credit_ledger = 0 if credit_ledger is None else credit_ledger
+                except:
+                    credit_ledger = 0
 
-        fees = Decimal("0")
-        debit_ledger = Decimal("0")
+            fees = Decimal("0")
+            debit_ledger = Decimal("0")
 
-        for entry in await self.ledger.async_execute("SELECT fee, amount FROM transactions WHERE address = ?;", (balance_address,)):
-            try:
-                fees = quantize_eight(fees) + quantize_eight(entry[0])
-                fees = 0 if fees is None else fees
-            except:
-                fees = 0
-            try:
-                debit_ledger = debit_ledger + Decimal(entry[1])
-                debit_ledger = 0 if debit_ledger is None else debit_ledger
-            except:
-                debit_ledger = 0
+            for entry in await self.ledger.async_execute("SELECT fee, amount FROM transactions WHERE address = ?;", (balance_address,)):
+                try:
+                    fees = quantize_eight(fees) + quantize_eight(entry[0])
+                    fees = 0 if fees is None else fees
+                except:
+                    fees = 0
+                try:
+                    debit_ledger = debit_ledger + Decimal(entry[1])
+                    debit_ledger = 0 if debit_ledger is None else debit_ledger
+                except:
+                    debit_ledger = 0
 
-        debit = quantize_eight(debit_ledger + debit_mempool)
+            debit = quantize_eight(debit_ledger + debit_mempool)
 
-        rewards = Decimal("0")
-        for entry in await self.ledger.async_execute("SELECT reward FROM transactions WHERE recipient = ?;", (balance_address,)):
+            rewards = Decimal("0")
+            for entry in await self.ledger.async_execute("SELECT reward FROM transactions WHERE recipient = ?;", (balance_address,)):
+                try:
+                    rewards = quantize_eight(rewards) + quantize_eight(entry[0])
+                    rewards = 0 if rewards is None else rewards
+                except:
+                    rewards = 0
+            balance = quantize_eight(credit_ledger - debit - fees + rewards)
+            balance_no_mempool = float(credit_ledger) - float(debit_ledger) - float(fees) + float(rewards)
+            # app_log.info("Mempool: Projected transction address balance: " + str(balance))
+            return str(balance), str(credit_ledger), str(debit), str(fees), str(rewards), str(balance_no_mempool)
+        else:
+            stream = await self._node_stream()
             try:
-                rewards = quantize_eight(rewards) + quantize_eight(entry[0])
-                rewards = 0 if rewards is None else rewards
-            except:
-                rewards = 0
-        balance = quantize_eight(credit_ledger - debit - fees + rewards)
-        balance_no_mempool = float(credit_ledger) - float(debit_ledger) - float(fees) + float(rewards)
-        # app_log.info("Mempool: Projected transction address balance: " + str(balance))
-        return str(balance), str(credit_ledger), str(debit), str(fees), str(rewards), str(balance_no_mempool)
+                await self._send("balanceget", stream)
+                await self._send(balance_address, stream)
+                balance = await self._receive(stream)
+                return balance
+            except KeyboardInterrupt:
+                stream.close()
+            finally:
+                if stream:
+                    stream.close()
 
     async def user_balancegetjson(self, balance_address):
         values = await self.user_balanceget(balance_address)

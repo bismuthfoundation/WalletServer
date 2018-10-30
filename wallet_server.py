@@ -33,7 +33,7 @@ from modules.sqlitebase import SqliteBase
 from modules.node_interface import NodeInterface
 
 
-__version__ = '0.1.3'
+__version__ = '0.1.4'
 
 
 # Server
@@ -59,7 +59,7 @@ class WalletServer(TCPServer):
         access_log.info("Incoming connection from {}:{} - {} Total Clients".format(ip, fileno, len(self.clients)))
         while not stop_event.is_set():
             try:
-                print("waiting for command")
+                # print("waiting for command")
                 await self.command(stream, ip)
             except StreamClosedError:
                 WalletServer.clients.remove(address)
@@ -214,12 +214,16 @@ def start_server(port):
     # attach mempool db
     #server.listen(port)
     io_loop = IOLoop.instance()
-    try:
-        # Force a db connection attempt
-        ret = io_loop.run_sync(ledger.schema, 30)
-    except Exception as e:
-        app_log.info("Can't connect to ledger: {}".format(e))
-        return
+
+    if CONFIG.direct_ledger:
+        try:
+            # Force a db connection attempt
+            ret = io_loop.run_sync(ledger.schema, 30)
+        except Exception as e:
+            app_log.error("Can't connect to ledger: {}".format(e))
+            return
+    else:
+        app_log.info("Config: don't use direct ledger access")
     try:
         # Force a db connection attempt
         ret = io_loop.run_sync(mempool.schema, 30)
