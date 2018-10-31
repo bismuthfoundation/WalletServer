@@ -15,7 +15,7 @@ import tornado.iostream
 from modules.helpers import *
 
 
-__version_ = '0.0.6'
+__version_ = '0.0.7'
 
 
 # TODO: factorize all commands that are sent "as is" to the local node.
@@ -61,7 +61,7 @@ class NodeInterface():
 
     def cached(self, key, timeout=30):
         if key in self.cache:
-            if self.cache[key][0] > time.time() - 30:
+            if self.cache[key][0] > time.time() - timeout:
                 return True
         return False
 
@@ -152,6 +152,7 @@ class NodeInterface():
         return node_status[8]
 
     async def user_aliasesget(self, addresses):
+        # TODO: local cache of Addresses / Aliases => todo in the wallet ?.
         stream = await self._node_stream()
         try:
             await self._send("aliasesget", stream)
@@ -165,6 +166,7 @@ class NodeInterface():
                 stream.close()
 
     async def user_addfromalias(self, alias_resolve):
+        # TODO: cache
         stream = await self._node_stream()
         try:
             await self._send("addfromalias", stream)
@@ -191,6 +193,7 @@ class NodeInterface():
                 stream.close()
 
     async def user_aliasget(self, address):
+        # TODO: cache
         stream = await self._node_stream()
         try:
             await self._send("aliasget", stream)
@@ -231,7 +234,7 @@ class NodeInterface():
                 stream.close()
 
     async def user_blocklast(self):
-        if self.cached("blocklast"):
+        if self.cached("blocklast", 30):
             return self.cache['blocklast'][1]
         if self.config.direct_ledger:
             last = await self.ledger.async_fetchone("SELECT * FROM transactions WHERE reward > 0 ORDER BY block_height DESC LIMIT 1")
@@ -249,7 +252,7 @@ class NodeInterface():
         return last
 
     async def user_mpget(self):
-        if self.cached("mpget", 10):
+        if self.cached("mpget", 30):
             return self.cache['mpget'][1]
         # too old, really get
         mp = await self.mempool.async_fetchall('SELECT * FROM transactions ORDER BY amount DESC')
@@ -301,7 +304,7 @@ class NodeInterface():
         return dict(zip(TX_KEYS, tx))
 
     async def user_annverget(self):
-        if self.cached("annverget", 60):
+        if self.cached("annverget", 60*10):
             return self.cache['annverget'][1]
         ann_ver = ''
         if self.config.direct_ledger:
@@ -403,7 +406,7 @@ class NodeInterface():
 
     async def user_annget(self):
         # TODO: factorize with annverget
-        if self.cached("annget", 60):
+        if self.cached("annget", 60*10):
             return self.cache['annget'][1]
         ann_addr = self.config.genesis_conf
         ann = ''

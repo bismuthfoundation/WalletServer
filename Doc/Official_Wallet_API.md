@@ -9,7 +9,9 @@ THIS IS ONLY A DRAFT SO FAR
 ## Endpoint
 
 Base URL is   
-`https://api.bismuth.live/servers/wallet/`
+`http://api.bismuth.live/servers/wallet/`
+
+(https version on its way)
 
 Data is returned as json, and is cached for 5 minutes.  
 No need in querying this API more often.
@@ -35,6 +37,11 @@ Each item is a dict with the following keys:
   For an active wallet, that is irrelevant, and would be less than 5 minutes in the past.  
   For a non active wallet, that would be 0 if it never was seen as active, or the timestamp of its lake ok check.
 - country - optional - is there for future use in a possible user selectable list.
+
+New, also:
+
+- version (wallet server version)
+- height (latest block from server)
 
 ### Get a list of websocket wallet servers to connect to
 
