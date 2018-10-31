@@ -35,7 +35,7 @@ Each item is a dict with the following keys:
 - total_slots is the maximum clients the server accepts
 - last active is the timestamp of the last check where the server was active.  
   For an active wallet, that is irrelevant, and would be less than 5 minutes in the past.  
-  For a non active wallet, that would be 0 if it never was seen as active, or the timestamp of its lake ok check.
+  For a non active wallet, that would be 0 if it never was seen as active, or the timestamp of its last ok check.
 - country - optional - is there for future use in a possible user selectable list.
 
 New, also:
