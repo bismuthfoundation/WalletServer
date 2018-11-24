@@ -44,7 +44,7 @@ Ex:
 ```
 
 
-### addlistlimjson (address, limit=10, offset=0)
+### addlistlimjson (address, limit=10)
 
 json version of `addlistlim`.  
 Returns a list of the latest `limit` transactions from `address` , last one first.  

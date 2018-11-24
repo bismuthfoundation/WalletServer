@@ -6,7 +6,7 @@ EggdraSyl -October 2018
 pip3 install -r requirements.txt
 """
 
-# TODO: background status taks
+# TODO: background status tasks
 
 # TODO: limit clients #
 
