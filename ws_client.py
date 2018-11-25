@@ -29,6 +29,9 @@ async def command(ws, command):
     else:
         print("Connection closed")
 
+async def aliascheck(ws, alias):
+    message = '["aliascheck", "{}"]'.format(alias)
+    await command(ws, message)
 
 async def getbalance(ws, address):
     message = '["balanceget", "{}"]'.format(address)
@@ -75,6 +78,7 @@ async def txgetjson(ws, txid, addresses=[]):
 async def test():
     ws = await websocket_connect(URL)
     await getbalance(ws, "0634b5046b1e2b6a69006280fbe91951d5bb5604c6f469baa2bcd840")
+    await aliascheck(ws, "test")
     await statusget(ws)
     await statusjson(ws)
     await blockget(ws)  # This will trigger an error
