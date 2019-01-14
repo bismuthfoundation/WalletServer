@@ -309,11 +309,14 @@ class NodeInterface():
         ann_ver = ''
         if self.config.direct_ledger:
             ann_addr = self.config.genesis_conf
-            result = await self.ledger.async_fetchone("SELECT openfield FROM transactions "
-                                                      "WHERE address = ? AND openfield LIKE ? "
-                                                      "ORDER BY block_height DESC limit 1",
-                                                      (ann_addr, "annver=%"))
-            ann_ver = replace_regex(result[0], "annver=")
+            try:
+                result = await self.ledger.async_fetchone("SELECT openfield FROM transactions "
+                                                          "WHERE address = ? AND operation = ? "
+                                                          "ORDER BY block_height DESC limit 1",
+                                                          (ann_addr, "annver"))
+                ann_ver = replace_regex(result[0], "annver=")
+            except:
+                ann_ver = ""
         else:
             stream = await self._node_stream()
             try:
@@ -411,11 +414,14 @@ class NodeInterface():
         ann_addr = self.config.genesis_conf
         ann = ''
         if self.config.direct_ledger:
-            result = await self.ledger.async_fetchone("SELECT openfield FROM transactions "
-                                                      "WHERE address = ? AND openfield LIKE ? "
-                                                      "ORDER BY block_height DESC limit 1",
-                                                      (ann_addr, "ann=%"))
-            ann = replace_regex(result[0], "ann=")
+            try:
+                result = await self.ledger.async_fetchone("SELECT openfield FROM transactions "
+                                                          "WHERE address = ? AND operation = "
+                                                          "ORDER BY block_height DESC limit 1",
+                                                          (ann_addr, "ann"))
+                ann = replace_regex(result[0], "ann=")
+            except:
+                ann = ""
         else:
             stream = await self._node_stream()
             try:
