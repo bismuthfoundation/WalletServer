@@ -314,7 +314,6 @@ class NodeInterface():
                                                           "WHERE address = ? AND operation = ? "
                                                           "ORDER BY block_height DESC limit 1",
                                                           (ann_addr, "annver"))
-                ann_ver = replace_regex(result[0], "annver=")
             except:
                 ann_ver = ""
         else:
@@ -416,10 +415,9 @@ class NodeInterface():
         if self.config.direct_ledger:
             try:
                 result = await self.ledger.async_fetchone("SELECT openfield FROM transactions "
-                                                          "WHERE address = ? AND operation = "
+                                                          "WHERE address = ? AND operation = ?"
                                                           "ORDER BY block_height DESC limit 1",
                                                           (ann_addr, "ann"))
-                ann = replace_regex(result[0], "ann=")
             except:
                 ann = ""
         else:
