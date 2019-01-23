@@ -33,7 +33,7 @@ class Get:
         "db_path": "../Bismuth/static",
         "debug": False,
         "testnet": False,
-        "max_clients": 100,
+        "max_clients": 50,
         "direct_ledger": True
 
     }
