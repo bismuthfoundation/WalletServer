@@ -9,7 +9,7 @@
 
 #node_port=5658
 
-#max_clients=100
+#max_clients=50
 
 #testnet=False
 
