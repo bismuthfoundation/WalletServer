@@ -1,5 +1,5 @@
 # WalletServer
-An experimental Tornado based Wallet server for Bismuth
+A Wallet server for Bismuth, powering light wallets.
 
 ## Why?
 A high perf wallet server, independant from a regular bismuth node.
@@ -54,7 +54,7 @@ by
 
 # Changelog
 
-## 0.1.1
+## 0.1.1
 
 Major refactor to support the websocket server as well.
 
