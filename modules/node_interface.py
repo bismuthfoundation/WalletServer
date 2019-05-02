@@ -381,6 +381,22 @@ class NodeInterface():
                     stream.close()
         return txs
 
+    async def user_addlistopfrom(self, address, op: str=''):
+        """Returns tx matching given op and sender address"""
+
+        if len(address) == 2:
+            # address can be a string, or a list [address, op]
+            address, op = address
+        txs = []
+        if self.config.direct_ledger:
+            txs = await self.ledger.async_fetchall("SELECT * FROM transactions WHERE address = ? AND operation = ? "
+                                                   "ORDER BY block_height DESC",
+                                                   (address, op))
+        else:
+            txs= {"Error": "Need direct ledger access or capable node"}
+            # TODO: add user_addlistopfrom to node
+        return txs
+
     async def user_addlistlimjson(self, address, limit=10):
         txs = await self.user_addlistlim(address, limit)
         return [dict(zip(TX_KEYS, tx)) for tx in txs]
@@ -388,6 +404,11 @@ class NodeInterface():
     async def user_addlistlimfromjson(self, address, limit=10, offset=0):
         txs = await self.user_addlistlimfrom(address, limit, offset)
         return [dict(zip(TX_KEYS, tx)) for tx in txs]
+
+    async def user_addlistopfromjson(self, address, op: str=''):
+        txs = await self.user_addlistopfrom(address, op)
+        return [dict(zip(TX_KEYS, tx)) for tx in txs]
+
 
     async def user_addlist(self, address):
         if self.config.direct_ledger:
