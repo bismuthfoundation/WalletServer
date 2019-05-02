@@ -9,7 +9,7 @@ import re
 from decimal import Decimal
 
 
-__version__ = "0.0.1"
+__version__ = "0.0.2"
 
 
 def quantize_two(value):
@@ -43,3 +43,8 @@ def fee_calculate(openfield, operation='', block=0):
     if openfield.startswith("alias="):
         fee = Decimal(fee) + Decimal("1")
     return quantize_eight(fee)
+
+
+# Dup code, not pretty, but would need address module to avoid dup
+def address_validate(address):
+    return re.match('[abcdef0123456789]{56}', address)

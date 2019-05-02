@@ -15,7 +15,7 @@ import tornado.iostream
 from modules.helpers import *
 
 
-__version_ = '0.0.7'
+__version_ = '0.0.8'
 
 
 # TODO: factorize all commands that are sent "as is" to the local node.
@@ -541,7 +541,73 @@ class NodeInterface():
                 if stream:
                     stream.close()
 
+    async def user_globalbalanceget(self, addresses):
+        """Return total balance amounts from a list of addresses"""
+        # Sanitize, make sure addresses are addresses. Important here since we assemble the query by hand.
+        for address in addresses:
+            if not address_validate(address):
+                return "Error: bad address {}".format(address)
+        addresses= "('" + "','".join(addresses) + "')"
+        # print("add", addresses)
+        if self.config.direct_ledger:
+            base_mempool = await self.mempool.async_fetchall("SELECT amount, openfield, operation FROM transactions "
+                                                             "WHERE address in {}".format(addresses))
+            # include mempool fees
+            debit_mempool = 0
+            if base_mempool:
+                for x in base_mempool:
+                    debit_tx = Decimal(x[0])
+                    fee = fee_calculate(x[1], x[2], 700001)
+                    debit_mempool = quantize_eight(debit_mempool + debit_tx + fee)
+            else:
+                debit_mempool = 0
+            # include mempool fees
+            credit_ledger = Decimal("0")
+            for entry in await self.ledger.async_execute("SELECT amount FROM transactions WHERE recipient in{};".format(addresses)):
+                try:
+                    credit_ledger = quantize_eight(credit_ledger) + quantize_eight(entry[0])
+                    credit_ledger = 0 if credit_ledger is None else credit_ledger
+                except:
+                    credit_ledger = 0
+
+            fees = Decimal("0")
+            debit_ledger = Decimal("0")
+
+            for entry in await self.ledger.async_execute("SELECT fee, amount FROM transactions WHERE address in {};".format(addresses)):
+                try:
+                    fees = quantize_eight(fees) + quantize_eight(entry[0])
+                    fees = 0 if fees is None else fees
+                except:
+                    fees = 0
+                try:
+                    debit_ledger = debit_ledger + Decimal(entry[1])
+                    debit_ledger = 0 if debit_ledger is None else debit_ledger
+                except:
+                    debit_ledger = 0
+
+            debit = quantize_eight(debit_ledger + debit_mempool)
+
+            rewards = Decimal("0")
+            for entry in await self.ledger.async_execute("SELECT reward FROM transactions WHERE recipient in {};".format(addresses)):
+                try:
+                    rewards = quantize_eight(rewards) + quantize_eight(entry[0])
+                    rewards = 0 if rewards is None else rewards
+                except:
+                    rewards = 0
+            balance = quantize_eight(credit_ledger - debit - fees + rewards)
+            balance_no_mempool = float(credit_ledger) - float(debit_ledger) - float(fees) + float(rewards)
+            # app_log.info("Mempool: Projected transction address balance: " + str(balance))
+            return str(balance), str(credit_ledger), str(debit), str(fees), str(rewards), str(balance_no_mempool)
+        else:
+            return "Error: Need direct ledger access or capable node"
+            # TODO: add user_globalbalanceget to node
+
     async def user_balancegetjson(self, balance_address):
         values = await self.user_balanceget(balance_address)
+        keys = ["balance", "total_credits", "total_debits", "total_fees", "total_rewards", "balance_no_mempool"]
+        return dict(zip(keys, values))
+
+    async def user_globalbalancegetjson(self, addresses):
+        values = await self.user_globalbalanceget(addresses)
         keys = ["balance", "total_credits", "total_debits", "total_fees", "total_rewards", "balance_no_mempool"]
         return dict(zip(keys, values))

@@ -267,6 +267,28 @@ See addlistlimfrom for answer format.
 Returns a list of the transactions from any sender, with exact match on the given operation AND data (openfield) field.    
 See addlistlimfrom for answer format.
 
+### globalbalanceget (address_list)
+*Wallet server only command, this is __not__ a regular node command*   
+> Since Wallet server v0.1.7, Websocket server v0.0.6
+
+Returns current balance for given `address_list`.  
+See Demo/client.py
+
+Returns  
+`[total balance, total_credits, total_debits, total_fees, total_rewards, balance_no_mempool]`
+
+Ex:
+`["98.34764109", "27908.23206709", "27852.10000000", "0.98335000", "43.19892400", "98.34764109000224"]`
+
+
+### globalbalancegetjson (address)
+*Wallet server only command, this is __not__ a regular node command*   
+> Since Wallet server v0.1.7, Websocket server v0.0.6
+
+Verbose version of `globalbalanceget`, as a keyed json object rather than a bare list.
+
+
+
 
 ## Other info
 
