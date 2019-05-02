@@ -252,6 +252,20 @@ Ex:
 "fee": 0.01021, "reward": 0, "operation": "", "openfield": "msg=This is a message"}
 ```
 
+### addlistopfrom and addlistopfromjson
+*Wallet server only command, this is __not__ a regular node command*   
+> Since Wallet server v0.1.6, Websocket server v0.0.5
+
+Returns a list of the transactions from sender `address` , with exact match on the given operation field.  
+See addlistlimfrom for answer format.
+
+
+### listexactopdata and listexactopdatajson
+*Wallet server only command, this is __not__ a regular node command*   
+> Since Wallet server v0.1.6, Websocket server v0.0.5
+
+Returns a list of the transactions from any sender, with exact match on the given operation AND data (openfield) field.    
+See addlistlimfrom for answer format.
 
 
 ## Other info
