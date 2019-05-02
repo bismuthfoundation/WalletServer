@@ -397,6 +397,24 @@ class NodeInterface():
             # TODO: add user_addlistopfrom to node
         return txs
 
+    async def user_listexactopdata(self, op, data: str=''):
+        """Returns tx matching given op and openfield"""
+
+        if len(op) == 2:
+            # address can be a string, or a list [address, op]
+            op, data = op
+        txs = []
+        if self.config.direct_ledger:
+            # Hard limit of 1000 most recent for safety.
+            txs = await self.ledger.async_fetchall("SELECT * FROM transactions WHERE operation = ? and openfield = ?"
+                                                   "ORDER BY block_height DESC LIMIT 1000",
+                                                   (op, data))
+        else:
+            txs= {"Error": "Need direct ledger access or capable node"}
+            # TODO: add user_addlistopfrom to node
+        return txs
+
+
     async def user_addlistlimjson(self, address, limit=10):
         txs = await self.user_addlistlim(address, limit)
         return [dict(zip(TX_KEYS, tx)) for tx in txs]
@@ -409,6 +427,9 @@ class NodeInterface():
         txs = await self.user_addlistopfrom(address, op)
         return [dict(zip(TX_KEYS, tx)) for tx in txs]
 
+    async def user_listexactopdatajson(self, op, data: str=''):
+        txs = await self.user_listexactopdata(op, data)
+        return [dict(zip(TX_KEYS, tx)) for tx in txs]
 
     async def user_addlist(self, address):
         if self.config.direct_ledger:
