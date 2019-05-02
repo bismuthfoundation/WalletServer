@@ -15,9 +15,11 @@ A high perf wallet server, independant from a regular bismuth node.
 * Updateable with no node downtime
 
 ## Current drawbacks
-* not much doc (wip)
+* not much doc (wip, see https://github.com/bismuthfoundation/WalletServer/tree/master/Doc )
 
 # Usage
+
+See https://github.com/bismuthfoundation/WalletServer/tree/master/Demo
 
 
 ** IMPORTANT **
@@ -53,6 +55,11 @@ by
 > A workaround would be to run your bismuth node on an alternate port, and use default 5658 port as the wallet server port.
 
 # Changelog
+
+## 0.1.7
+
+New functions added to ease dApps dev work.  
+See https://github.com/bismuthfoundation/WalletServer/tree/master/Doc for commands reference.
 
 ## 0.1.1
 
