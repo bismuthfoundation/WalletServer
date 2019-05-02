@@ -29,9 +29,11 @@ async def command(ws, command):
     else:
         print("Connection closed")
 
+
 async def aliascheck(ws, alias):
     message = '["aliascheck", "{}"]'.format(alias)
     await command(ws, message)
+
 
 async def getbalance(ws, address):
     message = '["balanceget", "{}"]'.format(address)
@@ -40,25 +42,31 @@ async def getbalance(ws, address):
     message = '["balancegetjson", "{}"]'.format(address)
     await command(ws, message)
 
+
 async def statusjson(ws):
     message = '["statusjson"]'
     await command(ws, message)
+
 
 async def statusget(ws):
     message = '["statusget"]'
     await command(ws, message)
 
+
 async def blockget(ws):
     message = '["blockget", 558742]'
     await command(ws, message)
+
 
 async def addlistlimjson(ws, address, limit):
     message = '["addlistlimjson", "{}", {}]'.format(address, limit)
     await command(ws, message)
 
+
 async def addlistlimfromjson(ws, address, limit, offset=0):
     message = '["addlistlimfromjson", "{}", {}, {}]'.format(address, limit, offset)
     await command(ws, message)
+
 
 async def txget(ws, txid, addresses=[]):
     if len(addresses):
@@ -66,6 +74,7 @@ async def txget(ws, txid, addresses=[]):
     else:
         message = '["txget", "{}"]'.format(txid)
     await command(ws, message)
+
 
 async def txgetjson(ws, txid, addresses=[]):
     if len(addresses):

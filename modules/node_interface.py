@@ -314,6 +314,7 @@ class NodeInterface():
                                                           "WHERE address = ? AND operation = ? "
                                                           "ORDER BY block_height DESC limit 1",
                                                           (ann_addr, "annver"))
+                ann_ver = replace_regex(result[0], "annver=")
             except:
                 ann_ver = ""
         else:
@@ -418,6 +419,7 @@ class NodeInterface():
                                                           "WHERE address = ? AND operation = ?"
                                                           "ORDER BY block_height DESC limit 1",
                                                           (ann_addr, "ann"))
+                ann = replace_regex(result[0], "ann=")
             except:
                 ann = ""
         else:
