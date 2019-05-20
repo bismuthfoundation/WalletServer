@@ -383,7 +383,7 @@ class NodeInterface():
 
     async def user_addlistopfrom(self, address, op: str=''):
         """Returns tx matching given op and sender address"""
-
+        # TODO: cache
         if len(address) == 2:
             # address can be a string, or a list [address, op]
             address, op = address
@@ -396,6 +396,23 @@ class NodeInterface():
             txs= {"Error": "Need direct ledger access or capable node"}
             # TODO: add user_addlistopfrom to node
         return txs
+
+    async def user_addlistoplikefrom(self, address, op: str=''):
+        """Returns tx matching like op% and sender address"""
+        # TODO: cache
+        if len(address) == 2:
+            # address can be a string, or a list [address, op]
+            address, op = address
+        txs = []
+        if self.config.direct_ledger:
+            txs = await self.ledger.async_fetchall("SELECT * FROM transactions WHERE address = ? AND operation LIKE ? "
+                                                   "ORDER BY block_height DESC",
+                                                   (address, "{}%".format(op)))
+        else:
+            txs= {"Error": "Need direct ledger access or capable node"}
+            # TODO: add user_addlistopfrom to node
+        return txs
+
 
     async def user_listexactopdata(self, op, data: str=''):
         """Returns tx matching given op and openfield"""
@@ -430,6 +447,27 @@ class NodeInterface():
     async def user_listexactopdatajson(self, op, data: str=''):
         txs = await self.user_listexactopdata(op, data)
         return [dict(zip(TX_KEYS, tx)) for tx in txs]
+
+    async def user_pubkeyget(self, address):
+        if self.config.direct_ledger:
+            res = await self.ledger.async_fetchone("SELECT public_key FROM transactions "
+                                                   "WHERE address = ? and reward = 0 LIMIT 1",
+                                                   (address, ))
+            pubkey = res[0]
+            print("pubkey0", pubkey)
+        else:
+            stream = await self._node_stream()
+            try:
+                await self._send("pubkeyget", stream)
+                await self._send(address, stream)
+                pubkey = await self._receive(stream)
+                print("pubkey", pubkey)
+            except KeyboardInterrupt:
+                stream.close()
+            finally:
+                if stream:
+                    stream.close()
+        return pubkey
 
     async def user_addlist(self, address):
         if self.config.direct_ledger:
