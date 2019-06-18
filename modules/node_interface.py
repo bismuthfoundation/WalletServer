@@ -15,8 +15,14 @@ import tornado.iostream
 from modules.helpers import *
 
 
-__version_ = '0.0.8'
+__version_ = '0.0.9'
 
+# Hardcoded list of addresses that need a message, like exchanges.
+# qtrade, tradesatoshi, old cryptopia, graviex
+REJECT_EMPTY_MESSAGE_FOR = ['f6c0363ca1c5aa28cc584252e65a63998493ff0a5ec1bb16beda9bac',
+                            '49ca873779b36c4a503562ebf5697fca331685d79fd3deef64a46888',
+                            'edf2d63cdf0b6275ead22c9e6d66aa8ea31dc0ccb367fad2e7c08a25',
+                            '14c1b5851634f0fa8145ceea1a52cabe2443dc10350e3febf651bd3a']
 
 # TODO: factorize all commands that are sent "as is" to the local node.
 
@@ -221,8 +227,14 @@ class NodeInterface():
 
     async def user_mpinsert(self, mp_insert):
         # TODO: factorize with node_aliases above
-        stream = await self._node_stream()
+        recipient = mp_insert[2]
+        message = mp_insert[7]
+        # print(recipient, message)
+        # TODO: add validity and checksum address for recipient + sender from polysign?
+        if len(message) < 5 and recipient in REJECT_EMPTY_MESSAGE_FOR:
+            return(["Error: mandatory message for this recipient - See FAQ"])
         try:
+            stream = await self._node_stream()
             await self._send("mpinsert", stream)
             await self._send(mp_insert, stream)
             res = await self._receive(stream)
