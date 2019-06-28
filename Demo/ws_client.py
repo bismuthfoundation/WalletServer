@@ -13,12 +13,13 @@ from tornado.websocket import websocket_connect
 from tornado.options import define, options
 
 
-__version__ = '0.0.41'
+__version__ = '0.0.42'
 
 
 URL = "ws://localhost:8155/web-socket/"
 
 DEFAULT_PORT = 8155
+
 
 async def command(ws, command):
     print(command)
@@ -84,6 +85,11 @@ async def txgetjson(ws, txid, addresses=[]):
     await command(ws, message)
 
 
+async def mpgetforjson(ws, address):
+    message = '["mpgetforjson", "{}"]'.format(address)
+    await command(ws, message)
+
+
 async def test():
     ws = await websocket_connect(URL)
     await getbalance(ws, "0634b5046b1e2b6a69006280fbe91951d5bb5604c6f469baa2bcd840")
@@ -96,6 +102,8 @@ async def test():
     await txget(ws, "Zr7jd0cYxshZiTdZVlSH3vrS9e7Ixb+VZ+KDCcKc3+noS+2lVy7qE/qa")
     # txget is way faster if you can provide an optional recipient address or list of addresses
     await txgetjson(ws, "Zr7jd0cYxshZiTdZVlSH3vrS9e7Ixb+VZ+KDCcKc3+noS+2lVy7qE/qa", ["d2f59465568c120a9203f9bd6ba2169b21478f4e7cb713f61eaa1ea0"])
+
+    await mpgetforjson(ws, "0634b5046b1e2b6a69006280fbe91951d5bb5604c6f469baa2bcd840")
 
 
 if __name__ == "__main__":
