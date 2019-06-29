@@ -1,6 +1,8 @@
+import sys
 import os.path as path
 
-__version__ = "0.0.3"
+
+__version__ = "0.0.4"
 
 
 class Get:
@@ -76,3 +78,6 @@ class Get:
         # then override with optional custom config
         if path.exists("config_custom.txt"):
             self.load_file("config_custom.txt")
+        if not self.direct_ledger:
+            print("Newest versions need direct_ledger to be True")
+            sys.exit()

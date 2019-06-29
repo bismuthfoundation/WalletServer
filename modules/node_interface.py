@@ -327,6 +327,7 @@ class NodeInterface:
 
     async def user_txget(self, transaction_id, addresses=[]):
         # TODO: this is intensive. rate limit or cache, but needs a garbage collector in cache function then.
+        # New: now also searches in mempool first
         """
         if self.cached("txget", 10):
             return self.cache['txget'][1]
@@ -336,20 +337,39 @@ class NodeInterface:
         if self.config.direct_ledger:
             if len(addresses):
                 recipients = json.dumps(addresses).replace("[", "(").replace("]", ")")
-                tx = await self.ledger.async_fetchone(
-                    "SELECT * FROM transactions WHERE recipient IN {} AND signature LIKE ?".format(
+                tx = await self.mempool.async_fetchone(
+                    "SELECT -1, cast(timestamp as double), address, recipient, amount, signature, public_key, "
+                    "'', 0, 0, operation, openfield "
+                    "FROM transactions WHERE recipient IN {} "
+                    "AND signature LIKE ?".format(
                         recipients
                     ),
                     (transaction_id + "%",),
                 )
+                if tx is None:
+                    tx = await self.ledger.async_fetchone(
+                        "SELECT * FROM transactions WHERE recipient IN {} AND signature LIKE ?".format(
+                            recipients
+                        ),
+                        (transaction_id + "%",),
+                    )
             else:
                 tx = await self.ledger.async_fetchone(
-                    "SELECT * FROM transactions WHERE signature like ?",
+                    "SELECT -1, cast(timestamp as double), address, recipient, amount, signature, public_key, "
+                    "'', 0, 0, operation, openfield FROM transactions WHERE signature like ?",
                     (transaction_id + "%",),
                 )
+                if tx is None:
+                    tx = await self.ledger.async_fetchone(
+                        "SELECT * FROM transactions WHERE signature like ?",
+                        (transaction_id + "%",),
+                    )
         else:
+            return ["Ko", "Non capable wallet server"]
+            """
             stream = await self._node_stream()
             try:
+                # No txget on node.
                 await self._send("txget", stream)
                 await self._send(transaction_id, stream)
                 tx = await self._receive(stream)
@@ -358,6 +378,7 @@ class NodeInterface:
             finally:
                 if stream:
                     stream.close()
+            """
         if tx:
             return tx
         else:
