@@ -95,6 +95,8 @@ class SqliteBase():
                 if self.verbose:
                     self.app_log.info("Opening async {} db".format(self.db_name))
                 self.async_db = await aiosqlite3.connect(self.db_path, loop=asyncio.get_event_loop())
+                cursor = await self.async_db.cursor()
+                await cursor.execute("PRAGMA case_sensitive_like = 1;")
                 # self.async_db.row_factory = sqlite3.Row
                 self.async_db.text_factory = str
             except Exception as e:
