@@ -171,13 +171,13 @@ class WalletServer(TCPServer):
         while not stop_event.is_set():
             try:
                 app_log.info("STATUS: {} Connected clients.".format(len(self.clients)))
+                self.status_dict['clients'] = len(self.clients)
+                self.status_dict['max_clients'] = MAX_CLIENTS
                 if process:
                     of = len(process.open_files())
                     fd = process.num_fds()
                     co = len(process.connections(kind="tcp4"))
-                    self.status_dict['clients'] = len(self.clients)
                     self.status_dict['of'] , self.status_dict['fd'], self.status_dict['co'] = of, fd, co
-                    self.status_dict['max_clients'] = MAX_CLIENTS
                     app_log.info("STATUS: {} Open files, {} connections, {} FD used.".format(of, co, fd))
 
                 await asyncio.sleep(30)
