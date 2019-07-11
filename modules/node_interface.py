@@ -273,7 +273,7 @@ class NodeInterface:
             return self.cache["blocklast"][1]
         if self.config.direct_ledger:
             last = await self.ledger.async_fetchone(
-                "SELECT * FROM transactions WHERE reward > 0 ORDER BY block_height DESC LIMIT 1"
+                "SELECT * FROM transactions WHERE reward > 0 AND block_height = (SELECT max(block_height) FROM transactions) LIMIT 1"
             )
         else:
             stream = await self._node_stream()
@@ -553,14 +553,14 @@ class NodeInterface:
                 (address,),
             )
             pubkey = res[0]
-            print("pubkey0", pubkey)
+            #print("pubkey0", pubkey)
         else:
             stream = await self._node_stream()
             try:
                 await self._send("pubkeyget", stream)
                 await self._send(address, stream)
                 pubkey = await self._receive(stream)
-                print("pubkey", pubkey)
+                #print("pubkey", pubkey)
             except KeyboardInterrupt:
                 stream.close()
             finally:

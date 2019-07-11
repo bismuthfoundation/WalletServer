@@ -42,7 +42,7 @@ from modules.sqlitebase import SqliteBase
 from modules.node_interface import NodeInterface
 
 
-__version__ = '0.0.12'
+__version__ = '0.0.13'
 
 
 NODE_INTERFACE = None
@@ -52,6 +52,8 @@ class ChannelHandler(tornado.websocket.WebSocketHandler):
     """
     Handler for a websocket channel
     """
+
+    client_id_counter = 0
 
     @classmethod
     def urls(cls):
@@ -68,7 +70,11 @@ class ChannelHandler(tornado.websocket.WebSocketHandler):
         """
         global access_log
         global app_log
-        access_log.info("open")
+        #client id could be remote_ip/port instead, but need to handle proxies/ports
+        ChannelHandler.client_id_counter += 1
+        self.client_id = f"{ChannelHandler.client_id_counter}({self.request.remote_ip})"
+        self.message_id = 0
+        access_log.info(f"open {self.client_id}")
 
     async def send_ko(self, reason):
         await self.write_message('["Ko", "{}"]'.format(reason))
@@ -77,15 +83,20 @@ class ChannelHandler(tornado.websocket.WebSocketHandler):
         """
         Message received on channel
         """
-        app_log.info("Message {}".format(message))
+        self.message_id += 1
+        app_log.info(f"Message[{self.message_id}] from {self.client_id} {message}")
         message = json.loads(message)
         # TODO: check with message[0] that we have the right number of params
         params_count = NODE_INTERFACE.param_count_of(message[0], ['none'])
         if params_count < 0:
             await self.send_ko("Unknown command")
             return
+        start_time = time.time()
         # string, or dict that will be json encoded
         res = await NODE_INTERFACE.call_user(message)
+        time_taken = time.time() - start_time
+        app_log.info(f"Response[{self.message_id}] for {self.client_id} took {time_taken:.3f}s")
+
         await self.write_message(json.dumps(res))
 
     def on_close(self):
