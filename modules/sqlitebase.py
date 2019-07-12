@@ -116,7 +116,7 @@ class SqliteBase():
             except Exception as e:
                 self.app_log.warning("Database query: {} {}".format(sql, param))
                 self.app_log.warning("Database {} retry reason: {}".format(self.db_name, e))
-                asyncio.sleep(0.1)
+                await asyncio.sleep(0.1)
                 max_tries -= 1
         if not max_tries:
             raise ValueError("Too many retries")
@@ -152,7 +152,7 @@ class SqliteBase():
                 break
             except Exception as e:
                 self.app_log.warning("Database {} retry reason: {}".format(self.db_name, e))
-                asyncio.sleep(0.1)
+                await asyncio.sleep(0.1)
 
     async def async_fetchone(self, sql, param=None, as_dict=False):
         """
