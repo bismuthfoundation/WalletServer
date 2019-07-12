@@ -354,7 +354,7 @@ class NodeInterface:
                         (transaction_id + "%",),
                     )
             else:
-                tx = await self.ledger.async_fetchone(
+                tx = await self.mempool.async_fetchone(
                     "SELECT -1, cast(timestamp as double), address, recipient, amount, signature, public_key, "
                     "'', 0, 0, operation, openfield FROM transactions WHERE signature like ?",
                     (transaction_id + "%",),

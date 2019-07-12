@@ -42,7 +42,7 @@ from modules.sqlitebase import SqliteBase
 from modules.node_interface import NodeInterface
 
 
-__version__ = '0.0.13'
+__version__ = '0.0.14'
 
 
 NODE_INTERFACE = None
