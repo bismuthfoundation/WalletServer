@@ -8,6 +8,7 @@ Crude websocket client for tests
 
 import json
 import sys
+import time
 from tornado.ioloop import IOLoop
 from tornado.websocket import websocket_connect
 from tornado.options import define, options
@@ -22,11 +23,11 @@ DEFAULT_PORT = 8155
 
 
 async def command(ws, command):
-    print(command)
+    print('=>', command)
     ws.write_message(command)
     msg = await ws.read_message()
     if msg:
-        print(msg)
+        print('<=', msg)
     else:
         print("Connection closed")
 
@@ -75,4 +76,7 @@ if __name__ == "__main__":
         print("Using {}".format(URL))
 
     ioloop = IOLoop.current()
+
+    start = time.time()
     ioloop.run_sync(get_the_txid)
+    print(f"took {time.time() - start:.3} seconds")
