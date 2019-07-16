@@ -215,7 +215,10 @@ if __name__ == "__main__":
 
     if os.name == "posix":
         process = psutil.Process()
-        limit = process.rlimit(psutil.RLIMIT_NOFILE)
+        try:
+            limit = process.rlimit(psutil.RLIMIT_NOFILE)
+        except:
+            limit = (1024, -1)
         app_log.info("OS File limits {}, {}".format(limit[0], limit[1]))
         if limit[0] < 1024:
             app_log.error("Too small ulimit, please tune your system.")
