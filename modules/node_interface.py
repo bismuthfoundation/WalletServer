@@ -340,7 +340,7 @@ class NodeInterface:
                 tx = await self.mempool.async_fetchone(
                     "SELECT -1, cast(timestamp as double), address, recipient, amount, signature, public_key, "
                     "'', 0, 0, operation, openfield "
-                    "FROM transactions WHERE recipient IN {} "
+                    "FROM transactions WHERE +recipient IN {} "
                     "AND signature LIKE ?".format(
                         recipients
                     ),
@@ -348,7 +348,7 @@ class NodeInterface:
                 )
                 if tx is None:
                     tx = await self.ledger.async_fetchone(
-                        "SELECT * FROM transactions WHERE recipient IN {} AND signature LIKE ?".format(
+                        "SELECT * FROM transactions WHERE +recipient IN {} AND signature LIKE ?".format(
                             recipients
                         ),
                         (transaction_id + "%",),
