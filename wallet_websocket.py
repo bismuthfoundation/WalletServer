@@ -42,7 +42,7 @@ from modules.sqlitebase import SqliteBase
 from modules.node_interface import NodeInterface
 
 
-__version__ = '0.0.15'
+__version__ = '0.0.16'
 
 
 NODE_INTERFACE = None
@@ -126,7 +126,7 @@ async def getrights(ip):
 def start_server(port):
     global NODE_INTERFACE
 
-    mempool = SqliteBase(options.verbose, db_path=CONFIG.node_path + '/', db_name='mempool.db', app_log=app_log)
+    mempool = SqliteBase(options.verbose, db_path=CONFIG.mempool_path.replace("mempool.db", ""), db_name='mempool.db', app_log=app_log)
     db_name = 'ledger.db'
     if CONFIG.testnet:
         db_name = 'test.db'
@@ -178,8 +178,8 @@ if __name__ == "__main__":
 
     # TODO: print settings
 
-    if not os.path.isfile(CONFIG.node_path + '/mempool.db'):
-        print("mempool.db not found.")
+    if not os.path.isfile(CONFIG.mempool_path):
+        print("mempool.db not found at {}".format(CONFIG.mempool_path))
         print("Please edit config.txt, check mempool_ram_conf=False and restart node.")
         sys.exit()
 

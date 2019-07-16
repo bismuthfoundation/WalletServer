@@ -2,7 +2,7 @@ import sys
 import os.path as path
 
 
-__version__ = "0.0.4"
+__version__ = "0.0.5"
 
 
 class Get:
@@ -17,6 +17,7 @@ class Get:
         "debug": ["bool"],
         "node_path": ["str"],
         "db_path": ["str"],
+        "mempool_path": ["str"],
         "debug_level": ["str"],
         "allowed": ["str"],
         "banlist": ["list"],
@@ -32,6 +33,7 @@ class Get:
         "node_port": 5658,
         "node_path": "../Bismuth",
         "db_path": "../Bismuth/static",
+        "mempool_path": "../Bismuth/mempool.db",
         "debug": False,
         "testnet": False,
         "max_clients": 50,

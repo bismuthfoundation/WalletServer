@@ -9,7 +9,7 @@ import re
 from decimal import Decimal
 
 
-__version__ = "0.0.2"
+__version__ = "0.0.3"
 
 
 def quantize_two(value):
@@ -46,5 +46,21 @@ def fee_calculate(openfield, operation='', block=0):
 
 
 # Dup code, not pretty, but would need address module to avoid dup
+
+RE_RSA_ADDRESS = re.compile(r"^[abcdef0123456789]{56}$")
+# TODO: improve that ECDSA one
+RE_ECDSA_ADDRESS = re.compile(r"^Bis")
+
+
 def address_validate(address):
-    return re.match('[abcdef0123456789]{56}', address)
+    if RE_RSA_ADDRESS.match(address):
+        # RSA, 56 hex
+        return True
+    elif RE_ECDSA_ADDRESS.match(address):
+        if 50 < len(address) < 60:
+            # ED25519, around 54
+            return True
+        if 30 < len(address) < 50:
+            # ecdsa, around 37
+            return True
+    return False

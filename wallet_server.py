@@ -33,7 +33,7 @@ from modules.sqlitebase import SqliteBase
 from modules.node_interface import NodeInterface
 
 
-__version__ = '0.1.15'
+__version__ = '0.1.16'
 
 
 # Server
@@ -202,7 +202,7 @@ def start_server(port):
     global stop_event
     global PORT
     global CONFIG
-    mempool = SqliteBase(options.verbose, db_path=CONFIG.node_path+'/', db_name='mempool.db', app_log=app_log)
+    mempool = SqliteBase(options.verbose, db_path=CONFIG.mempool_path.replace("mempool.db", ""), db_name='mempool.db', app_log=app_log)
     db_name = 'ledger.db'
     if CONFIG.testnet:
         db_name = 'test.db'
@@ -266,9 +266,9 @@ if __name__ == "__main__":
 
     # TODO: print settings
 
-    if not os.path.isfile(CONFIG.node_path + '/mempool.db'):
-        print("mempool.db not found.")
-        print("Please edit config.txt, check mempool_ram_conf=False and restart node.")
+    if not os.path.isfile(CONFIG.mempool_path):
+        print("mempool.db not found at {}".format(CONFIG.mempool_path))
+        print("Please edit node's config.txt, check mempool_ram_conf=False and restart node.")
         sys.exit()
 
     start_time = time.time()
