@@ -15,7 +15,7 @@ import tornado.iostream
 from modules.helpers import *
 
 
-__version_ = "0.0.9"
+__version__ = "0.0.10"
 
 # Hardcoded list of addresses that need a message, like exchanges.
 # qtrade, tradesatoshi, old cryptopia, graviex
@@ -336,7 +336,10 @@ class NodeInterface:
             transaction_id, addresses = transaction_id
         if self.config.direct_ledger:
             if len(addresses):
-                recipients = json.dumps(addresses).replace("[", "(").replace("]", ")")
+                for address in addresses:
+                    if not address_validate(address):
+                        return ["Ko", f"Error: bad address {address}"]
+                recipients = "('" + "','".join(addresses) + "')"
                 tx = await self.mempool.async_fetchone(
                     "SELECT -1, cast(timestamp as double), address, recipient, amount, signature, public_key, "
                     "'', 0, 0, operation, openfield "
