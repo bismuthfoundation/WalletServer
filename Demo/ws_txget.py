@@ -14,7 +14,7 @@ from tornado.websocket import websocket_connect
 from tornado.options import define, options
 
 
-__version__ = "0.0.1"
+__version__ = "0.0.2"
 
 
 URL = "ws://localhost:8155/web-socket/"
@@ -60,7 +60,7 @@ async def get_the_txid():
 
 
 if __name__ == "__main__":
-    define("ip", default="127.0.0.1", help="Server IP to connect to, default 127.0.0.1")
+    define("ip", default="127.0.0.1", help="Server IP[:port] to connect to, default 127.0.0.1")
     define("txid", help="txid to lookup")
     define(
         "address", default="", help="Address the txid relates to. Speeds up the lookup"
@@ -72,8 +72,11 @@ if __name__ == "__main__":
         print("--txid is mandatory")
         sys.exit()
     if options.ip != "127.0.0.1":
-        URL = "ws://{}:{}/web-socket/".format(options.ip, DEFAULT_PORT)
-        print("Using {}".format(URL))
+        if ":" in options.ip:
+            URL = "ws://{}/web-socket/".format(options.ip)
+        else:
+            URL = "ws://{}:{}/web-socket/".format(options.ip, DEFAULT_PORT)
+    print("Using {}".format(URL))
 
     ioloop = IOLoop.current()
 
