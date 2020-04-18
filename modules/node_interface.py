@@ -495,6 +495,24 @@ class NodeInterface:
             # TODO: add user_addlistopfrom to node
         return txs
 
+    async def user_addlistopfromasc(self, address, op: str = ""):
+        """Returns tx matching given op and sender address ordered by ASC"""
+        # TODO: cache
+        if len(address) == 2:
+            # address can be a string, or a list [address, op]
+            address, op = address
+        txs = []
+        if self.config.direct_ledger:
+            txs = await self.ledger.async_fetchall(
+                "SELECT * FROM transactions WHERE address = ? AND operation = ? "
+                "ORDER BY block_height ASC",
+                (address, op),
+            )
+        else:
+            txs = {"Error": "Need direct ledger access or capable node"}
+            # TODO: add user_addlistopfromasc to node
+        return txs
+
     async def user_addlistopto(self, address, op: str = ""):
         """Returns tx matching given op and recipient address"""
         # TODO: cache
@@ -512,7 +530,25 @@ class NodeInterface:
             txs = {"Error": "Need direct ledger access or capable node"}
             # TODO: add user_addlistopto to node
         return txs
-    
+
+    async def user_addlistoptoasc(self, address, op: str = ""):
+        """Returns tx matching given op and recipient address ordered by ASC"""
+        # TODO: cache
+        if len(address) == 2:
+            # address can be a string, or a list [address, op]
+            address, op = address
+        txs = []
+        if self.config.direct_ledger:
+            txs = await self.ledger.async_fetchall(
+                "SELECT * FROM transactions WHERE recipient = ? AND operation = ? "
+                "ORDER BY block_height ASC",
+                (address, op),
+            )
+        else:
+            txs = {"Error": "Need direct ledger access or capable node"}
+            # TODO: add user_addlistoptoasc to node
+        return txs
+
     async def user_addlistoplikefrom(self, address, op: str = ""):
         """Returns tx matching like op% and sender address"""
         # TODO: cache
@@ -562,10 +598,18 @@ class NodeInterface:
         txs = await self.user_addlistopfrom(address, op)
         return [dict(zip(TX_KEYS, tx)) for tx in txs]
 
+    async def user_addlistopfromascjson(self, address, op: str = ""):
+        txs = await self.user_addlistopfromasc(address, op)
+        return [dict(zip(TX_KEYS, tx)) for tx in txs]
+
     async def user_addlistoptojson(self, address, op: str = ""):
         txs = await self.user_addlistopto(address, op)
         return [dict(zip(TX_KEYS, tx)) for tx in txs]
-    
+
+    async def user_addlistoptoascjson(self, address, op: str = ""):
+        txs = await self.user_addlistoptoasc(address, op)
+        return [dict(zip(TX_KEYS, tx)) for tx in txs]
+
     async def user_listexactopdatajson(self, op, data: str = ""):
         txs = await self.user_listexactopdata(op, data)
         return [dict(zip(TX_KEYS, tx)) for tx in txs]
