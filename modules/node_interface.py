@@ -435,7 +435,7 @@ class NodeInterface:
             txs = await self.ledger.async_fetchall(
                 "SELECT * FROM transactions WHERE (address = ? OR recipient = ?) "
                 "ORDER BY block_height DESC LIMIT ?, ?",
-                (address, address, offset, limit),
+               (address, address, offset, limit),
             )
         else:
             stream = await self._node_stream()
@@ -477,6 +477,35 @@ class NodeInterface:
                     stream.close()
         return txs
 
+    async def user_addlistop(self, address, op: str = "", desc: bool = True,
+                             sender: bool = True, start_time: float = 0.0, end_time: float = 9e9):
+        """Returns tx matching given address, op, order descending/ascending, sender/recipient, start and end timestamps"""
+        # TODO: cache
+        if len(address) == 6:
+            # address can be a string, or a list [address, op, desc, sender, start_time, end_time]
+            address, op, desc, sender, start_time, end_time = address
+        txs = []
+        if desc:
+            order = "DESC"
+        else:
+            order = "ASC"
+        if sender:
+            fromto = "address"
+        else:
+            fromto = "recipient"
+
+        if self.config.direct_ledger:
+            txs = await self.ledger.async_fetchall(
+                "SELECT * FROM transactions WHERE " + fromto + " = ? AND operation = ? "
+                "AND timestamp > ? AND timestamp < ? "
+                "ORDER BY block_height " + order,
+                (address, op, start_time, end_time),
+            )
+        else:
+            txs = {"Error": "Need direct ledger access or capable node"}
+            # TODO: add user_addlistop to node
+        return txs
+
     async def user_addlistopfrom(self, address, op: str = ""):
         """Returns tx matching given op and sender address"""
         # TODO: cache
@@ -493,60 +522,6 @@ class NodeInterface:
         else:
             txs = {"Error": "Need direct ledger access or capable node"}
             # TODO: add user_addlistopfrom to node
-        return txs
-
-    async def user_addlistopfromasc(self, address, op: str = ""):
-        """Returns tx matching given op and sender address ordered by ASC"""
-        # TODO: cache
-        if len(address) == 2:
-            # address can be a string, or a list [address, op]
-            address, op = address
-        txs = []
-        if self.config.direct_ledger:
-            txs = await self.ledger.async_fetchall(
-                "SELECT * FROM transactions WHERE address = ? AND operation = ? "
-                "ORDER BY block_height ASC",
-                (address, op),
-            )
-        else:
-            txs = {"Error": "Need direct ledger access or capable node"}
-            # TODO: add user_addlistopfromasc to node
-        return txs
-
-    async def user_addlistopto(self, address, op: str = ""):
-        """Returns tx matching given op and recipient address"""
-        # TODO: cache
-        if len(address) == 2:
-            # address can be a string, or a list [address, op]
-            address, op = address
-        txs = []
-        if self.config.direct_ledger:
-            txs = await self.ledger.async_fetchall(
-                "SELECT * FROM transactions WHERE recipient = ? AND operation = ? "
-                "ORDER BY block_height DESC",
-                (address, op),
-            )
-        else:
-            txs = {"Error": "Need direct ledger access or capable node"}
-            # TODO: add user_addlistopto to node
-        return txs
-
-    async def user_addlistoptoasc(self, address, op: str = ""):
-        """Returns tx matching given op and recipient address ordered by ASC"""
-        # TODO: cache
-        if len(address) == 2:
-            # address can be a string, or a list [address, op]
-            address, op = address
-        txs = []
-        if self.config.direct_ledger:
-            txs = await self.ledger.async_fetchall(
-                "SELECT * FROM transactions WHERE recipient = ? AND operation = ? "
-                "ORDER BY block_height ASC",
-                (address, op),
-            )
-        else:
-            txs = {"Error": "Need direct ledger access or capable node"}
-            # TODO: add user_addlistoptoasc to node
         return txs
 
     async def user_addlistoplikefrom(self, address, op: str = ""):
@@ -594,24 +569,13 @@ class NodeInterface:
         txs = await self.user_addlistlimfrom(address, limit, offset)
         return [dict(zip(TX_KEYS, tx)) for tx in txs]
 
+    async def user_addlistopjson(self, address, op: str = "", desc: bool = True,
+                                 sender: bool = True, start_time: float = 0.0, end_time: float = 9e9):
+        txs = await self.user_addlistop(address, op, desc, sender, start_time, end_time)
+        return [dict(zip(TX_KEYS, tx)) for tx in txs]
+
     async def user_addlistopfromjson(self, address, op: str = ""):
         txs = await self.user_addlistopfrom(address, op)
-        return [dict(zip(TX_KEYS, tx)) for tx in txs]
-
-    async def user_addlistopfromascjson(self, address, op: str = ""):
-        txs = await self.user_addlistopfromasc(address, op)
-        return [dict(zip(TX_KEYS, tx)) for tx in txs]
-
-    async def user_addlistoptojson(self, address, op: str = ""):
-        txs = await self.user_addlistopto(address, op)
-        return [dict(zip(TX_KEYS, tx)) for tx in txs]
-
-    async def user_addlistoptoascjson(self, address, op: str = ""):
-        txs = await self.user_addlistoptoasc(address, op)
-        return [dict(zip(TX_KEYS, tx)) for tx in txs]
-
-    async def user_listexactopdatajson(self, op, data: str = ""):
-        txs = await self.user_listexactopdata(op, data)
         return [dict(zip(TX_KEYS, tx)) for tx in txs]
 
     async def user_pubkeyget(self, address):
