@@ -259,6 +259,19 @@ Ex:
 Returns a list of the transactions from sender `address` , with exact match on the given operation field.  
 See addlistlimfrom for answer format.
 
+### addlistop and addlistopjson
+*Wallet server only command, this is __not__ a regular node command*   
+> Since Wallet server v0.1.17, Websocket server v0.0.17
+
+Returns tx matching given address, op, amount, order descending/ascending, sender/recipient, start and end timestamps.  
+address (string): sender or recipient address  
+op (string): exact operation field  
+amount (float): transaction amount, can be used to filter spam  
+desc (bool): True means return txs in descending order, otherwise ascending order  
+sender (bool): True means that the address above is the sender, otherwise recipient  
+start_time (float): Lower limit on tx timestamp  
+end_time (float): Upper limit on tx timestamp  
+See addlistlimfrom for answer format.
 
 ### listexactopdata and listexactopdatajson
 *Wallet server only command, this is __not__ a regular node command*   
