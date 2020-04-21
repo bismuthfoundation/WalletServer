@@ -435,7 +435,7 @@ class NodeInterface:
             txs = await self.ledger.async_fetchall(
                 "SELECT * FROM transactions WHERE (address = ? OR recipient = ?) "
                 "ORDER BY block_height DESC LIMIT ?, ?",
-               (address, address, offset, limit),
+                (address, address, offset, limit),
             )
         else:
             stream = await self._node_stream()
@@ -577,6 +577,9 @@ class NodeInterface:
     async def user_addlistopfromjson(self, address, op: str = ""):
         txs = await self.user_addlistopfrom(address, op)
         return [dict(zip(TX_KEYS, tx)) for tx in txs]
+
+    async def user_listexactopdatajson(self, op, data: str = ""):
+        txs = await self.user_listexactopdata(op, data)
 
     async def user_pubkeyget(self, address):
         if self.config.direct_ledger:
