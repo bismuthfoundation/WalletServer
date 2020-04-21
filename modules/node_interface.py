@@ -477,13 +477,13 @@ class NodeInterface:
                     stream.close()
         return txs
 
-    async def user_addlistop(self, address, op: str = "", desc: bool = True,
-                             sender: bool = True, start_time: float = 0.0, end_time: float = 9e9):
-        """Returns tx matching given address, op, order descending/ascending, sender/recipient, start and end timestamps"""
+    async def user_addlistop(self, address, op: str = "", amount: float = 0.0, desc: bool = True,
+                             sender: bool = True, start_time: float = 0.0, end_time: float = 9e10):
+        """Returns tx matching given address, op, amount, order descending/ascending, sender/recipient, start and end timestamps"""
         # TODO: cache
-        if len(address) == 6:
+        if len(address) == 7:
             # address can be a string, or a list [address, op, desc, sender, start_time, end_time]
-            address, op, desc, sender, start_time, end_time = address
+            address, op, amount, desc, sender, start_time, end_time = address
         txs = []
         if desc:
             order = "DESC"
@@ -497,9 +497,9 @@ class NodeInterface:
         if self.config.direct_ledger:
             txs = await self.ledger.async_fetchall(
                 "SELECT * FROM transactions WHERE " + fromto + " = ? AND operation = ? "
-                "AND timestamp > ? AND timestamp < ? "
+                "AND timestamp > ? AND timestamp < ? AND amount >= ?"
                 "ORDER BY block_height " + order,
-                (address, op, start_time, end_time),
+                (address, op, start_time, end_time, amount),
             )
         else:
             txs = {"Error": "Need direct ledger access or capable node"}
@@ -569,9 +569,9 @@ class NodeInterface:
         txs = await self.user_addlistlimfrom(address, limit, offset)
         return [dict(zip(TX_KEYS, tx)) for tx in txs]
 
-    async def user_addlistopjson(self, address, op: str = "", desc: bool = True,
-                                 sender: bool = True, start_time: float = 0.0, end_time: float = 9e9):
-        txs = await self.user_addlistop(address, op, desc, sender, start_time, end_time)
+    async def user_addlistopjson(self, address, op: str = "", amount: float = 0.0, desc: bool = True,
+                                 sender: bool = True, start_time: float = 0.0, end_time: float = 9e10):
+        txs = await self.user_addlistop(address, op, amount, desc, sender, start_time, end_time)
         return [dict(zip(TX_KEYS, tx)) for tx in txs]
 
     async def user_addlistopfromjson(self, address, op: str = ""):
