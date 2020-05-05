@@ -33,7 +33,7 @@ from modules.sqlitebase import SqliteBase
 from modules.node_interface import NodeInterface
 
 
-__version__ = '0.1.17'
+__version__ = '0.1.18'
 
 
 # Server
