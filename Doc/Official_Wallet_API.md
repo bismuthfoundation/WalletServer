@@ -2,16 +2,14 @@
 
 The Bismuth network serves an official API to be used by light wallets.
 
-THIS IS ONLY A DRAFT SO FAR
+THIS IS A WIP
 ---------------------------
 
 
 ## Endpoint
 
 Base URL is   
-`http://api.bismuth.live/servers/wallet/`
-
-(https version on its way)
+`https://api.bismuth.live/servers/wallet/`
 
 Data is returned as json, and is cached for 5 minutes.  
 No need in querying this API more often.
@@ -44,6 +42,8 @@ New, also:
 - height (latest block from server)
 
 ### Get a list of websocket wallet servers to connect to
+
+> This endpoint is not available atm, contact the team if you have a need for it.
 
 `https://api.bismuth.live/servers/wallet/websocket.json`
 
