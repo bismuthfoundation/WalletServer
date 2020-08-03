@@ -42,10 +42,10 @@ from modules.sqlitebase import SqliteBase
 from modules.node_interface import NodeInterface
 
 
-__version__ = '0.0.18'
+__version__ = '0.0.19'
 
 
-NODE_INTERFACE = None
+NODE_INTERFACE: NodeInterface = None
 
 
 class ChannelHandler(tornado.websocket.WebSocketHandler):

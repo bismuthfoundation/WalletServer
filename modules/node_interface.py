@@ -15,7 +15,7 @@ import tornado.iostream
 from modules.helpers import *
 
 
-__version__ = "0.0.10"
+__version__ = "0.0.11"
 
 # Hardcoded list of addresses that need a message, like exchanges.
 # qtrade, tradesatoshi, old cryptopia, graviex
@@ -65,11 +65,16 @@ class NodeInterface:
         self.admin_method_list = {}
         # print(user_method_list)
 
-    def param_count_of(self, method_name, rights):
+    def param_count_of(self, method_name: str, rights):
         """
         returns the number of expected params for this command.
         returns -1 if the rights do not fit or unknown command
         """
+        if method_name.startswith("XTRA_"):
+            return 0
+        if method_name.startswith("TOKEN_"):
+            # Hardcoded param counts to avoid multiple calls and only use a forwarder. Limits the possible calls to a single param however (but can be a dict)
+            return 1
         if "user_" + method_name in self.user_method_list:
             return self.user_method_list["user_" + method_name]
         if "admin" in rights and "admin_" + method_name in self.admin_method_list:
@@ -79,8 +84,34 @@ class NodeInterface:
 
     async def call_user(self, args):
         method_name = args.pop(0)
+        if method_name.startswith("XTRA_") or method_name.startswith("TOKEN_"):
+            # forward_method = method_name.replace('user_', '')
+            result = await self.forward(method_name, args)
+            return result
         result = await getattr(self, "user_" + method_name)(*args)
         return result
+
+    async def forward(self, command, param):
+        """
+        Just forwards the command to the node and sends back the answer.
+        Allows to transparently proxy answers from plugins (tokens, nfts)
+        """
+        # print("forward", command, param)
+        stream = None
+        try:
+            stream = await self._node_stream()
+            try:
+                await self._send(command, stream)
+                await self._send(param, stream)
+                res = await self._receive(stream)
+                return res
+            except KeyboardInterrupt:
+                stream.close()
+        except Exception as e:
+            print(e)
+        finally:
+            if stream:
+                stream.close()
 
     def cached(self, key, timeout=30):
         if key in self.cache:
