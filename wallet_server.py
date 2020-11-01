@@ -28,12 +28,13 @@ from tornado.tcpserver import TCPServer
 
 # Bismuth specific modules
 import modules.config as config
-from modules.helpers import *
+# from modules.helpers import *
 from modules.sqlitebase import SqliteBase
+from modules.ledgerbase import LedgerBase
 from modules.node_interface import NodeInterface
 
 
-__version__ = '0.1.19'
+__version__ = '0.1.20'
 
 
 # Server
@@ -76,7 +77,7 @@ class WalletServer(TCPServer):
                 access_log.info("Client {}:{} Timeout  - {} Total Clients".format(ip, fileno, len(self.clients)))
                 try:
                     stream.close()
-                except:
+                except Exception:
                     pass
                 break
             except Exception as e:
@@ -85,20 +86,28 @@ class WalletServer(TCPServer):
                     app_log.error("handle_stream {} for ip {}:{}".format(what, ip, fileno))
                     await asyncio.sleep(1)
 
-    async def _receive(self, stream, ip):
+    @staticmethod
+    async def _receive(stream, ip):
         """
         Get a command, async version
         :param stream:
         :param ip:
         :return:
         """
-        header = await tornado.gen.with_timeout(datetime.timedelta(seconds=35), stream.read_bytes(10), quiet_exceptions=tornado.iostream.StreamClosedError)
-        data_len = int(header)
-        data = await tornado.gen.with_timeout(datetime.timedelta(seconds=10), stream.read_bytes(data_len), quiet_exceptions=tornado.iostream.StreamClosedError)
-        data = json.loads(data.decode("utf-8"))
-        return data
+        try:
+            header = await tornado.gen.with_timeout(datetime.timedelta(seconds=35), stream.read_bytes(10),
+                                                    quiet_exceptions=tornado.iostream.StreamClosedError)
+            data_len = int(header)
+            data = await tornado.gen.with_timeout(datetime.timedelta(seconds=10), stream.read_bytes(data_len),
+                                                  quiet_exceptions=tornado.iostream.StreamClosedError)
+            data = json.loads(data.decode("utf-8"))
+            return data
+        except Exception as e:
+            app_log.error("_receive {} for ip {}".format(str(e), ip))
+            raise
 
-    async def _send(self, data, stream, ip):
+    @staticmethod
+    async def _send(data, stream, ip):
         """
         sends an object to the stream, async.
         :param data:
@@ -113,7 +122,7 @@ class WalletServer(TCPServer):
             full = header + data.encode('utf-8')
             await stream.write(full)
         except Exception as e:
-            app_log.error("send_to_stream {} for ip {}".format(str(e), ip))
+            app_log.error("_send {} for ip {}".format(str(e), ip))
             raise
 
     async def command(self, stream, ip):
@@ -171,13 +180,13 @@ class WalletServer(TCPServer):
         while not stop_event.is_set():
             try:
                 app_log.info("STATUS: {} Connected clients.".format(len(self.clients)))
-                self.status_dict['clients'] = len(self.clients)
+                self.status_dict['clients'] = str(len(self.clients))
                 self.status_dict['max_clients'] = MAX_CLIENTS
                 if process:
                     of = len(process.open_files())
                     fd = process.num_fds()
                     co = len(process.connections(kind="tcp4"))
-                    self.status_dict['of'] , self.status_dict['fd'], self.status_dict['co'] = of, fd, co
+                    self.status_dict['of'], self.status_dict['fd'], self.status_dict['co'] = of, fd, co
                     app_log.info("STATUS: {} Open files, {} connections, {} FD used.".format(of, co, fd))
 
                 await asyncio.sleep(30)
@@ -202,23 +211,24 @@ def start_server(port):
     global stop_event
     global PORT
     global CONFIG
-    mempool = SqliteBase(options.verbose, db_path=CONFIG.mempool_path.replace("mempool.db", ""), db_name='mempool.db', app_log=app_log)
+    mempool = SqliteBase(options.verbose, db_path=CONFIG.mempool_path.replace("mempool.db", ""),
+                         db_name='mempool.db', app_log=app_log)
     db_name = 'ledger.db'
     if CONFIG.testnet:
         db_name = 'test.db'
-    ledger = SqliteBase(options.verbose, db_path=CONFIG.db_path+'/', db_name=db_name, app_log=app_log)
+    ledger = LedgerBase(options.verbose, db_path=CONFIG.db_path+'/', db_name=db_name, app_log=app_log)
 
-    node_interface = NodeInterface(mempool, ledger, CONFIG)
+    node_interface = NodeInterface(mempool, ledger, CONFIG, app_log=app_log)
     server = WalletServer()
     server.node_interface = node_interface
     # attach mempool db
-    #server.listen(port)
+    # server.listen(port)
     io_loop = IOLoop.instance()
 
     if CONFIG.direct_ledger:
         try:
-            # Force a db connection attempt
-            ret = io_loop.run_sync(ledger.schema, 30)
+            # Force a db connection attempt and updates db version of ledger
+            _ = io_loop.run_sync(ledger.check_db_version, 30)
         except Exception as e:
             app_log.error("Can't connect to ledger: {}".format(e))
             return
@@ -226,7 +236,7 @@ def start_server(port):
         app_log.info("Config: don't use direct ledger access")
     try:
         # Force a db connection attempt
-        ret = io_loop.run_sync(mempool.schema, 30)
+        _ = io_loop.run_sync(mempool.schema, 30)
     except Exception as e:
         app_log.info("Can't connect to mempool: {}".format(e))
         return
@@ -264,7 +274,7 @@ if __name__ == "__main__":
         sys.exit()
     """
 
-    # TODO: print settings
+    # TODO: print settings
 
     if not os.path.isfile(CONFIG.mempool_path):
         print("mempool.db not found at {}".format(CONFIG.mempool_path))
@@ -302,7 +312,8 @@ if __name__ == "__main__":
     app_log.warning("Testnet: {}".format(is_testnet))
     # fail safe
     if is_testnet and int(CONFIG.node_port) != 2829:
-        app_log.warning("Testnet is active, but node_port set to {} instead of 2829. Make sure!".format(CONFIG.node_port))
+        app_log.warning("Testnet is active, but node_port set to {} instead of 2829. "
+                        "Make sure!".format(CONFIG.node_port))
         time.sleep(2)
 
     if os.name == "posix":
@@ -310,7 +321,7 @@ if __name__ == "__main__":
         try:
             # Fails on alpine linux
             limit = process.rlimit(psutil.RLIMIT_NOFILE)
-        except:
+        except Exception:
             limit = (1024, -1)
         app_log.info("OS File limits {}, {}".format(limit[0], limit[1]))
         if limit[0] < 1024:

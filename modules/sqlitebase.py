@@ -15,7 +15,7 @@ import asyncio
 __version__ = '0.0.3'
 
 
-class SqliteBase():
+class SqliteBase:
     """
     Generic Sqlite storage backend.
     """
@@ -25,6 +25,7 @@ class SqliteBase():
         self.app_log = app_log
         self.verbose = verbose
         self.db = None
+        self.legacy_db = True
         self.cursor = None
         self.check()
         self.async_db = None

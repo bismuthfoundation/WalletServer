@@ -10,20 +10,31 @@ from tornado.tcpclient import TCPClient
 import tornado
 import tornado.gen
 import tornado.iostream
+from sys import exit
+
+from decimal import Decimal
+from modules.helpers import replace_regex
+from bismuthcore.block import Block
+from bismuthcore.compat import quantize_eight
+from bismuthcore.helpers import fee_calculate, address_validate, K1E8, int_to_f8
+from bismuthcore.transaction import Transaction
+from bismuthcore.transactionslist import TransactionsList
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from modules.ledgerbase import LedgerBase
 
 
-from modules.helpers import *
-
-
-__version__ = "0.0.11"
+__version__ = "0.0.12"
 
 # Hardcoded list of addresses that need a message, like exchanges.
-# qtrade, tradesatoshi, old cryptopia, graviex
+# qtrade, tradesatoshi, old cryptopia, graviex, finexbox
 REJECT_EMPTY_MESSAGE_FOR = [
     "f6c0363ca1c5aa28cc584252e65a63998493ff0a5ec1bb16beda9bac",
     "49ca873779b36c4a503562ebf5697fca331685d79fd3deef64a46888",
     "edf2d63cdf0b6275ead22c9e6d66aa8ea31dc0ccb367fad2e7c08a25",
     "14c1b5851634f0fa8145ceea1a52cabe2443dc10350e3febf651bd3a",
+    "1a174d7fdc2036e6005d93cc985424021085cc4335061307985459ce"
 ]
 
 # TODO: factorize all commands that are sent "as is" to the local node.
@@ -49,11 +60,12 @@ def method_params_count(func):
 
 
 class NodeInterface:
-    def __init__(self, mempool, ledger, config):
+    def __init__(self, mempool, ledger: "LedgerBase", config, app_log=None):
         self.mempool = mempool
         self.ledger = ledger
         self.cache = {}
         self.config = config
+        self.app_log=app_log
         # print(getattr(self,"cached"))
         # print(self.__dict__)
         # print(locals())
@@ -73,7 +85,8 @@ class NodeInterface:
         if method_name.startswith("XTRA_"):
             return 0
         if method_name.startswith("TOKEN_"):
-            # Hardcoded param counts to avoid multiple calls and only use a forwarder. Limits the possible calls to a single param however (but can be a dict)
+            # Hardcoded param counts to avoid multiple calls and only use a forwarder.
+            # Limits the possible calls to a single param however (but can be a dict)
             return 1
         if "user_" + method_name in self.user_method_list:
             return self.user_method_list["user_" + method_name]
@@ -154,14 +167,13 @@ class NodeInterface:
         :param ip:
         :return:
         """
-        global app_log
         try:
             data = str(json.dumps(data))
             header = str(len(data)).encode("utf-8").zfill(10)
             full = header + data.encode("utf-8")
             await stream.write(full)
         except Exception as e:
-            app_log.error("send_to_stream {}".format(str(e)))
+            self.app_log.error("send_to_stream {}".format(str(e)))
             raise
 
     async def user_statusget(self):
@@ -287,6 +299,7 @@ class NodeInterface:
         # TODO: add validity and checksum address for recipient + sender from polysign?
         if len(message) < 5 and recipient in REJECT_EMPTY_MESSAGE_FOR:
             return ["Error: mandatory message for this recipient - See FAQ"]
+        stream = False
         try:
             stream = await self._node_stream()
             await self._send("mpinsert", stream)
@@ -302,10 +315,12 @@ class NodeInterface:
     async def user_blocklast(self):
         if self.cached("blocklast", 30):
             return self.cache["blocklast"][1]
+        if not self.ledger.legacy_db:
+            raise RuntimeError("V2 BD, Asking user_blocklast")
         if self.config.direct_ledger:
-            last = await self.ledger.async_fetchone(
-                "SELECT * FROM transactions WHERE reward > 0 AND block_height = (SELECT max(block_height) FROM transactions) LIMIT 1"
-            )
+            last = await self.ledger.async_fetchone("SELECT * FROM transactions WHERE reward > 0 "
+                                                    "AND block_height = (SELECT max(block_height) FROM transactions) "
+                                                    "LIMIT 1")
         else:
             stream = await self._node_stream()
             try:
@@ -323,9 +338,7 @@ class NodeInterface:
         if self.cached("mpget", 30):
             return self.cache["mpget"][1]
         # too old, really get
-        mp = await self.mempool.async_fetchall(
-            "SELECT * FROM transactions ORDER BY amount DESC"
-        )
+        mp = await self.mempool.async_fetchall("SELECT * FROM transactions ORDER BY amount DESC")
         self.set_cache("mpget", mp)
         return mp
 
@@ -341,13 +354,11 @@ class NodeInterface:
             return self.cache[key][1]
         # too old, really get
         # TODO: make sure wallet server node uses mempool_ram false.
-        mp = await self.mempool.async_fetchall(
-            "SELECT -1, cast(timestamp as double), address, recipient, amount, signature, public_key, '', 0, 0, operation, openfield "
-            "FROM transactions "
-            "WHERE address=? or recipient=? "
-            "ORDER BY timestamp ASC",
-            (address, address),
-        )
+        mp = await self.mempool.async_fetchall("SELECT -1, cast(timestamp as double), address, recipient, amount, "
+                                               "signature, public_key, '', 0, 0, operation, openfield "
+                                               "FROM transactions WHERE address=? or recipient=? "
+                                               "ORDER BY timestamp ASC",
+                                               (address, address))
         self.set_cache(key, mp)
         return mp
 
@@ -356,16 +367,20 @@ class NodeInterface:
         mp = await self.user_mpgetfor(address)
         return [dict(zip(TX_KEYS, tx)) for tx in mp]
 
-    async def user_txget(self, transaction_id, addresses=[]):
+    async def user_txget(self, transaction_id, addresses=None):
         # TODO: this is intensive. rate limit or cache, but needs a garbage collector in cache function then.
         # New: now also searches in mempool first
         """
         if self.cached("txget", 10):
             return self.cache['txget'][1]
         """
+        addresses = [] is addresses is None
         if len(transaction_id) == 2:
             transaction_id, addresses = transaction_id
         if self.config.direct_ledger:
+            if not self.ledger.legacy_db:
+                raise RuntimeError("V2 BD, Asking user_txget")
+
             if len(addresses):
                 for address in addresses:
                     if not address_validate(address):
@@ -375,50 +390,29 @@ class NodeInterface:
                     "SELECT -1, cast(timestamp as double), address, recipient, amount, signature, public_key, "
                     "'', 0, 0, operation, openfield "
                     "FROM transactions WHERE +recipient IN {} "
-                    "AND signature LIKE ?".format(
-                        recipients
-                    ),
-                    (transaction_id + "%",),
-                )
+                    "AND signature LIKE ?".format(recipients),
+                    (transaction_id + "%", ))
                 if tx is None:
                     tx = await self.ledger.async_fetchone(
-                        "SELECT * FROM transactions WHERE +recipient IN {} AND signature LIKE ?".format(
-                            recipients
-                        ),
-                        (transaction_id + "%",),
-                    )
+                        "SELECT * FROM transactions WHERE +recipient IN {} AND signature LIKE ?".format(recipients),
+                        (transaction_id + "%", ))
             else:
                 tx = await self.mempool.async_fetchone(
                     "SELECT -1, cast(timestamp as double), address, recipient, amount, signature, public_key, "
                     "'', 0, 0, operation, openfield FROM transactions WHERE signature like ?",
-                    (transaction_id + "%",),
-                )
+                    (transaction_id + "%", ))
                 if tx is None:
                     tx = await self.ledger.async_fetchone(
                         "SELECT * FROM transactions WHERE signature like ?",
-                        (transaction_id + "%",),
-                    )
+                        (transaction_id + "%", ))
         else:
             return ["Ko", "Non capable wallet server"]
-            """
-            stream = await self._node_stream()
-            try:
-                # No txget on node.
-                await self._send("txget", stream)
-                await self._send(transaction_id, stream)
-                tx = await self._receive(stream)
-            except KeyboardInterrupt:
-                stream.close()
-            finally:
-                if stream:
-                    stream.close()
-            """
         if tx:
             return tx
         else:
             return ["Ko", "No such TxId"]
 
-    async def user_txgetjson(self, transaction_id, addresses=[]):
+    async def user_txgetjson(self, transaction_id, addresses=None):
         tx = await self.user_txget(transaction_id, addresses)
         if len(tx) == 2:
             # error
@@ -432,14 +426,12 @@ class NodeInterface:
         if self.config.direct_ledger:
             ann_addr = self.config.genesis_conf
             try:
-                result = await self.ledger.async_fetchone(
-                    "SELECT openfield FROM transactions "
-                    "WHERE address = ? AND operation = ? "
-                    "ORDER BY block_height DESC limit 1",
-                    (ann_addr, "annver"),
-                )
+                result = await self.ledger.async_fetchone("SELECT openfield FROM transactions "
+                                                          "WHERE address = ? AND operation = ? "
+                                                          "ORDER BY block_height DESC limit 1",
+                                                          (ann_addr, "annver"))
                 ann_ver = replace_regex(result[0], "annver=")
-            except:
+            except Exception:
                 ann_ver = ""
         else:
             stream = await self._node_stream()
@@ -462,12 +454,13 @@ class NodeInterface:
         elif len(address) == 2:
             address, limit = address
         txs = []
-        if self.config.direct_ledger:
-            txs = await self.ledger.async_fetchall(
-                "SELECT * FROM transactions WHERE (address = ? OR recipient = ?) "
-                "ORDER BY block_height DESC LIMIT ?, ?",
-                (address, address, offset, limit),
-            )
+        if self.config.direct_ledger and self.ledger.legacy_db:
+            if not self.ledger.legacy_db:
+                raise RuntimeError("V2 BD, Asking user_addlistlim")
+
+            txs = await self.ledger.async_fetchall("SELECT * FROM transactions WHERE (address = ? OR recipient = ?) "
+                                                   "ORDER BY block_height DESC LIMIT ?, ?",
+                                                   (address, address, offset, limit))
         else:
             stream = await self._node_stream()
             try:
@@ -489,11 +482,12 @@ class NodeInterface:
             address, limit = address
         txs = []
         if self.config.direct_ledger:
-            txs = await self.ledger.async_fetchall(
-                "SELECT * FROM transactions WHERE (address = ? OR recipient = ?) "
-                "ORDER BY block_height DESC LIMIT ?, ?",
-                (address, address, offset, limit),
-            )
+            if not self.ledger.legacy_db:
+                raise RuntimeError("V2 BD, Asking user_addlistlimfrom")
+
+            txs = await self.ledger.async_fetchall("SELECT * FROM transactions WHERE (address = ? OR recipient = ?) "
+                                                   "ORDER BY block_height DESC LIMIT ?, ?",
+                                                   (address, address, offset, limit))
         else:
             stream = await self._node_stream()
             try:
@@ -520,7 +514,6 @@ class NodeInterface:
             # address can be a string, or a list [address, op, desc, sender,
             # start_time, end_time]
             address, op, amount, desc, sender, start_time, end_time = address
-        txs = []
         if desc:
             order = "DESC"
         else:
@@ -531,20 +524,21 @@ class NodeInterface:
             fromto = "recipient"
 
         if self.config.direct_ledger:
-            txs = await self.ledger.async_fetchall(
-                "SELECT * FROM transactions WHERE " + fromto + " = ? AND "
-                "operation = ? AND timestamp > ? AND timestamp < ? AND "
-                "amount >= ? ORDER BY block_height " + order,
-                (address, op, start_time, end_time, amount),
-            )
+            if not self.ledger.legacy_db:
+                raise RuntimeError("V2 BD, Asking user_addlistop")
+
+            txs = await self.ledger.async_fetchall("SELECT * FROM transactions WHERE " + fromto + " = ? AND "
+                                                   "operation = ? AND timestamp > ? AND timestamp < ? AND "
+                                                   "amount >= ? ORDER BY block_height " + order,
+                                                   (address, op, start_time, end_time, amount))
         else:
             txs = {"Error": "Need direct ledger access or capable node"}
             # TODO: add user_addlistop to node
         return txs
 
     async def user_addlistopfromto(self, address, recipient, op: str = "",
-                             amount: float = 0.0, desc: bool = True,
-                             start_time: float = 0.0, end_time: float = 9e10):
+                                   amount: float = 0.0, desc: bool = True,
+                                   start_time: float = 0.0, end_time: float = 9e10):
         """
         Returns tx matching given sender, recipient, op, amount,
         order descending/ascending, start and end timestamps
@@ -554,19 +548,19 @@ class NodeInterface:
             # address can be a string, or a list [sender, recipient, op,
             # desc, sender, start_time, end_time]
             sender, recipient, op, amount, desc, start_time, end_time = address
-        txs = []
         if desc:
             order = "DESC"
         else:
             order = "ASC"
 
         if self.config.direct_ledger:
-            txs = await self.ledger.async_fetchall(
-                "SELECT * FROM transactions WHERE address = ? AND "
-                "recipient = ? AND operation = ? AND timestamp > ? AND "
-                "timestamp < ? AND amount >= ? ORDER BY block_height " + order,
-                (address, recipient, op, start_time, end_time, amount),
-            )
+            if not self.ledger.legacy_db:
+                raise RuntimeError("V2 BD, Asking user_addlistopfromto")
+
+            txs = await self.ledger.async_fetchall("SELECT * FROM transactions WHERE address = ? AND "
+                                                   "recipient = ? AND operation = ? AND timestamp > ? AND "
+                                                   "timestamp < ? AND amount >= ? ORDER BY block_height " + order,
+                                                   (address, recipient, op, start_time, end_time, amount))
         else:
             txs = {"Error": "Need direct ledger access or capable node"}
             # TODO: add user_addlistopfromto to node
@@ -578,13 +572,13 @@ class NodeInterface:
         if len(address) == 2:
             # address can be a string, or a list [address, op]
             address, op = address
-        txs = []
         if self.config.direct_ledger:
-            txs = await self.ledger.async_fetchall(
-                "SELECT * FROM transactions WHERE address = ? AND operation = ? "
-                "ORDER BY block_height DESC",
-                (address, op),
-            )
+            if not self.ledger.legacy_db:
+                raise RuntimeError("V2 BD, Asking user_addlistopfrom")
+
+            txs = await self.ledger.async_fetchall("SELECT * FROM transactions WHERE address = ? AND operation = ? "
+                                                   "ORDER BY block_height DESC",
+                                                   (address, op))
         else:
             txs = {"Error": "Need direct ledger access or capable node"}
             # TODO: add user_addlistopfrom to node
@@ -596,8 +590,10 @@ class NodeInterface:
         if len(address) == 2:
             # address can be a string, or a list [address, op]
             address, op = address
-        txs = []
         if self.config.direct_ledger:
+            if not self.ledger.legacy_db:
+                raise RuntimeError("V2 BD, Asking user_addlistoplikefrom")
+
             txs = await self.ledger.async_fetchall(
                 "SELECT * FROM transactions WHERE address = ? AND operation LIKE ? "
                 "ORDER BY block_height DESC",
@@ -614,14 +610,14 @@ class NodeInterface:
         if len(op) == 2:
             # address can be a string, or a list [address, op]
             op, data = op
-        txs = []
         if self.config.direct_ledger:
             # Hard limit of 1000 most recent for safety.
-            txs = await self.ledger.async_fetchall(
-                "SELECT * FROM transactions WHERE operation = ? and openfield = ?"
-                "ORDER BY block_height DESC LIMIT 1000",
-                (op, data),
-            )
+            if not self.ledger.legacy_db:
+                raise RuntimeError("V2 BD, Asking user_listexactopdata")
+
+            txs = await self.ledger.async_fetchall("SELECT * FROM transactions WHERE operation = ? and openfield = ?"
+                                                   "ORDER BY block_height DESC LIMIT 1000",
+                                                   (op, data))
         else:
             txs = {"Error": "Need direct ledger access or capable node"}
             # TODO: add user_addlistopfrom to node
@@ -636,42 +632,42 @@ class NodeInterface:
         return [dict(zip(TX_KEYS, tx)) for tx in txs]
 
     async def user_addlistopjson(self, address, op: str = "",
-            amount: float = 0.0, desc: bool = True, sender: bool = True,
-            start_time: float = 0.0, end_time: float = 9e10):
+                                 amount: float = 0.0, desc: bool = True, sender: bool = True,
+                                 start_time: float = 0.0, end_time: float = 9e10):
         txs = await self.user_addlistop(address, op, amount, desc,
                                         sender, start_time, end_time)
         return [dict(zip(TX_KEYS, tx)) for tx in txs]
 
     async def user_addlistopfromtojson(self, address, recipient, op: str = "",
-            amount: float = 0.0, desc: bool = True,
-            start_time: float = 0.0, end_time: float = 9e10):
+                                       amount: float = 0.0, desc: bool = True,
+                                       start_time: float = 0.0, end_time: float = 9e10):
         txs = await self.user_addlistopfromto(address, recipient, op, amount,
                                               desc, start_time, end_time)
         return [dict(zip(TX_KEYS, tx)) for tx in txs]
 
-    async def user_addlistopfromjson(self, address, op: str = ""):
+    async def user_addlistopfromjson(self, address, op: str = "") -> list:
         txs = await self.user_addlistopfrom(address, op)
         return [dict(zip(TX_KEYS, tx)) for tx in txs]
 
-    async def user_listexactopdatajson(self, op, data: str = ""):
+    async def user_listexactopdatajson(self, op, data: str = "") -> list:
         txs = await self.user_listexactopdata(op, data)
+        return [dict(zip(TX_KEYS, tx)) for tx in txs]
 
-    async def user_pubkeyget(self, address):
+    async def user_pubkeyget(self, address: str) -> str:
+        pubkey = ""
         if self.config.direct_ledger:
-            res = await self.ledger.async_fetchone(
-                "SELECT public_key FROM transactions "
-                "WHERE address = ? and reward = 0 LIMIT 1",
-                (address,),
-            )
+            res = await self.ledger.async_fetchone("SELECT public_key FROM transactions "
+                                                   "WHERE address = ? and reward = 0 LIMIT 1",
+                                                   (address, ))
             pubkey = res[0]
-            #print("pubkey0", pubkey)
+            # print("pubkey0", pubkey)
         else:
             stream = await self._node_stream()
             try:
                 await self._send("pubkeyget", stream)
                 await self._send(address, stream)
                 pubkey = await self._receive(stream)
-                #print("pubkey", pubkey)
+                # print("pubkey", pubkey)
             except KeyboardInterrupt:
                 stream.close()
             finally:
@@ -679,13 +675,15 @@ class NodeInterface:
                     stream.close()
         return pubkey
 
-    async def user_addlist(self, address):
+    async def user_addlist(self, address: str) -> list:
+        txs = []
         if self.config.direct_ledger:
-            txs = await self.ledger.async_fetchall(
-                "SELECT * FROM transactions WHERE (address = ? OR recipient = ?) "
-                "ORDER BY block_height DESC",
-                (address, address),
-            )
+            if not self.ledger.legacy_db:
+                raise RuntimeError("V2 BD, Asking user_addlist")
+
+            txs = await self.ledger.async_fetchall("SELECT * FROM transactions WHERE (address = ? OR recipient = ?) "
+                                                   "ORDER BY block_height DESC LIMIT 1000",
+                                                   (address, address))
         else:
             stream = await self._node_stream()
             try:
@@ -699,7 +697,7 @@ class NodeInterface:
                     stream.close()
         return txs
 
-    async def user_annget(self):
+    async def user_annget(self) -> str:
         # TODO: factorize with annverget
         if self.cached("annget", 60 * 10):
             return self.cache["annget"][1]
@@ -707,14 +705,12 @@ class NodeInterface:
         ann = ""
         if self.config.direct_ledger:
             try:
-                result = await self.ledger.async_fetchone(
-                    "SELECT openfield FROM transactions "
-                    "WHERE address = ? AND operation = ?"
-                    "ORDER BY block_height DESC limit 1",
-                    (ann_addr, "ann"),
-                )
+                result = await self.ledger.async_fetchone("SELECT openfield FROM transactions "
+                                                          "WHERE address = ? AND operation = ?"
+                                                          "ORDER BY block_height DESC limit 1",
+                                                          (ann_addr, "ann"))
                 ann = replace_regex(result[0], "ann=")
-            except:
+            except Exception:
                 ann = ""
         else:
             stream = await self._node_stream()
@@ -730,12 +726,13 @@ class NodeInterface:
         return ann
 
     async def user_balanceget(self, balance_address):
-        if self.config.direct_ledger:
-            base_mempool = await self.mempool.async_fetchall(
-                "SELECT amount, openfield, operation FROM transactions "
-                "WHERE address = ?;",
-                (balance_address,),
-            )
+        if self.config.direct_ledger and self.ledger.legacy_db:
+            if not self.ledger.legacy_db:
+                raise RuntimeError("V2 BD, Asking user_balanceget")
+
+            base_mempool = await self.mempool.async_fetchall("SELECT amount, openfield, operation FROM transactions "
+                                                             "WHERE address = ?",
+                                                             (balance_address, ))
             # include mempool fees
             debit_mempool = 0
             if base_mempool:
@@ -747,47 +744,41 @@ class NodeInterface:
                 debit_mempool = 0
             # include mempool fees
             credit_ledger = Decimal("0")
-            for entry in await self.ledger.async_execute(
-                "SELECT amount FROM transactions WHERE recipient = ?;",
-                (balance_address,),
-            ):
+            for entry in await self.ledger.async_execute("SELECT amount FROM transactions WHERE recipient = ?",
+                                                         (balance_address, )):
                 try:
                     credit_ledger = quantize_eight(credit_ledger) + quantize_eight(
                         entry[0]
                     )
                     credit_ledger = 0 if credit_ledger is None else credit_ledger
-                except:
+                except Exception:
                     credit_ledger = 0
 
             fees = Decimal("0")
             debit_ledger = Decimal("0")
 
-            for entry in await self.ledger.async_execute(
-                "SELECT fee, amount FROM transactions WHERE address = ?;",
-                (balance_address,),
-            ):
+            for entry in await self.ledger.async_execute("SELECT fee, amount FROM transactions WHERE address = ?",
+                                                         (balance_address, )):
                 try:
                     fees = quantize_eight(fees) + quantize_eight(entry[0])
                     fees = 0 if fees is None else fees
-                except:
+                except Exception:
                     fees = 0
                 try:
                     debit_ledger = debit_ledger + Decimal(entry[1])
                     debit_ledger = 0 if debit_ledger is None else debit_ledger
-                except:
+                except Exception:
                     debit_ledger = 0
 
             debit = quantize_eight(debit_ledger + debit_mempool)
 
             rewards = Decimal("0")
-            for entry in await self.ledger.async_execute(
-                "SELECT reward FROM transactions WHERE recipient = ?;",
-                (balance_address,),
-            ):
+            for entry in await self.ledger.async_execute("SELECT reward FROM transactions WHERE recipient = ?",
+                                                         (balance_address, )):
                 try:
                     rewards = quantize_eight(rewards) + quantize_eight(entry[0])
                     rewards = 0 if rewards is None else rewards
-                except:
+                except Exception:
                     rewards = 0
             balance = quantize_eight(credit_ledger - debit - fees + rewards)
             balance_no_mempool = (
@@ -827,10 +818,11 @@ class NodeInterface:
         addresses = "('" + "','".join(addresses) + "')"
         # print("add", addresses)
         if self.config.direct_ledger:
-            base_mempool = await self.mempool.async_fetchall(
-                "SELECT amount, openfield, operation FROM transactions "
-                "WHERE address in {}".format(addresses)
-            )
+            if not self.ledger.legacy_db:
+                raise RuntimeError("V2 BD, Asking user_globalbalanceget")
+
+            base_mempool = await self.mempool.async_fetchall("SELECT amount, openfield, operation FROM transactions "
+                                                             "WHERE address in {}".format(addresses))
             # include mempool fees
             debit_mempool = 0
             if base_mempool:
@@ -842,50 +834,39 @@ class NodeInterface:
                 debit_mempool = 0
             # include mempool fees
             credit_ledger = Decimal("0")
-            for entry in await self.ledger.async_execute(
-                "SELECT amount FROM transactions WHERE recipient in{};".format(
-                    addresses
-                )
-            ):
+            for entry in await self.ledger.async_execute("SELECT amount FROM transactions WHERE recipient in{}"
+                                                         .format(addresses)):
                 try:
-                    credit_ledger = quantize_eight(credit_ledger) + quantize_eight(
-                        entry[0]
-                    )
+                    credit_ledger = quantize_eight(credit_ledger) + quantize_eight(entry[0])
                     credit_ledger = 0 if credit_ledger is None else credit_ledger
-                except:
+                except Exception:
                     credit_ledger = 0
 
             fees = Decimal("0")
             debit_ledger = Decimal("0")
 
-            for entry in await self.ledger.async_execute(
-                "SELECT fee, amount FROM transactions WHERE address in {};".format(
-                    addresses
-                )
-            ):
+            for entry in await self.ledger.async_execute("SELECT fee, amount FROM transactions WHERE address in {}"
+                                                         .format(addresses)):
                 try:
                     fees = quantize_eight(fees) + quantize_eight(entry[0])
                     fees = 0 if fees is None else fees
-                except:
+                except Exception:
                     fees = 0
                 try:
                     debit_ledger = debit_ledger + Decimal(entry[1])
                     debit_ledger = 0 if debit_ledger is None else debit_ledger
-                except:
+                except Exception:
                     debit_ledger = 0
 
             debit = quantize_eight(debit_ledger + debit_mempool)
 
             rewards = Decimal("0")
-            for entry in await self.ledger.async_execute(
-                "SELECT reward FROM transactions WHERE recipient in {};".format(
-                    addresses
-                )
-            ):
+            for entry in await self.ledger.async_execute("SELECT reward FROM transactions WHERE recipient in {}"
+                                                         .format(addresses)):
                 try:
                     rewards = quantize_eight(rewards) + quantize_eight(entry[0])
                     rewards = 0 if rewards is None else rewards
-                except:
+                except Exception:
                     rewards = 0
             balance = quantize_eight(credit_ledger - debit - fees + rewards)
             balance_no_mempool = (

@@ -34,8 +34,8 @@ It now lives in a directory of its own and has its own config.
 
 ## Installation
 * requires python 3.6+ (async/await)
-* Copy the files over your regular node directory (needs some libs and config files from bismuth core)
-* install dependencies: `pip3 install -r wallet-server-requirements.txt`
+* (Should not be needed anymore, kept for later check) Copy the files over your regular node directory (needs some libs and config files from bismuth core)
+* install dependencies: `pip3 install -r requirements.txt`
 * Make sure you don't use ram mempool: in config.txt, set `mempool_ram_conf=False`
 * The Bismuth node has to be running
 * run `python3 wallet_server.py`
